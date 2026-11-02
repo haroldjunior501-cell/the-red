@@ -1,0 +1,58 @@
+import { resolveGlobeCountryKey } from './countryGlobeCoordinates';
+
+/** Décalage UTC (heures) pour l’heure locale approximative sur le globe Hub. */
+export const COUNTRY_UTC_OFFSET: Record<string, number> = {
+  MX: -6,
+  CZ: 2,
+  ZA: 2,
+  KR: 9,
+  CA: -5,
+  BA: 2,
+  QA: 3,
+  CH: 2,
+  BR: -3,
+  HT: -5,
+  MA: 1,
+  'GB-SCT': 1,
+  US: -5,
+  AU: 11,
+  PY: -4,
+  TR: 3,
+  CW: -4,
+  EC: -5,
+  DE: 2,
+  CI: 0,
+  NL: 2,
+  JP: 9,
+  SE: 2,
+  TN: 1,
+  BE: 2,
+  EG: 2,
+  IR: 3.5,
+  NZ: 13,
+  CV: -1,
+  SA: 3,
+  ES: 2,
+  UY: -3,
+  FR: 2,
+  NO: 2,
+  SN: 0,
+  IQ: 3,
+  DZ: 1,
+  AR: -3,
+  AT: 2,
+  JO: 3,
+  CO: -5,
+  UZ: 5,
+  PT: 1,
+  CD: 2,
+  HR: 2,
+  'GB-ENG': 1,
+  GH: 0,
+  PA: -5,
+};
+
+export function utcOffsetForCountry(code: string): number {
+  const key = resolveGlobeCountryKey(code);
+  return COUNTRY_UTC_OFFSET[key] ?? 0;
+}

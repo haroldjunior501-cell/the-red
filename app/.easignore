@@ -1,0 +1,19 @@
+# EAS Build — exclure du tarball (build plus rapide, moins d'erreurs)
+node_modules/
+server/
+docs/
+scripts/
+firebase/
+*.md
+.git/
+.cursor/
+agent-transcripts/
+android/
+ios/
+.expo/
+.env
+.env*.local
+dist/
+web-build/
+**/*.log
+**/.DS_Store

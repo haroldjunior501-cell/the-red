@@ -1,0 +1,28 @@
+🏆 GOALYA — Beta test
+
+Merci de participer à la beta GOALYA (Coupe du Monde 2026).
+
+📲 INSTALLATION
+• Utilise le lien de build qu’on t’a envoyé (TestFlight ou APK Android).
+• N’utilise pas Expo Go pour ce test.
+
+👤 COMPTE
+• Inscris-toi (email ou Google).
+• Choisis ton pays dans le profil.
+
+✅ À TESTER (45 min)
+1. Connexion + pays
+2. Accueil → match
+3. Pronos (et revérifier après redémarrage de l’app)
+4. Tableau (groupes + élimination)
+5. Hub → envoyer un message sur le match
+6. Fantasy → équipe + sauvegarde
+7. Déconnexion / reconnexion
+
+🐛 BUGS
+Envoie : modèle téléphone + étape + capture + ce qui s’est passé
+→ [REMPLACER : lien Discord / email support]
+
+⚠️ C’est une beta : certains contenus (stories, blessés) peuvent être vides — c’est normal.
+
+Merci ! — L’équipe GOALYA

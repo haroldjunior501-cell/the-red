@@ -1,0 +1,23 @@
+/** Palette écran Profil — alignée goalya-profil / spec AAA */
+export const PROFILE = {
+  bgTop: '#071426',
+  bgMid: '#0A1F44',
+  bgBottom: '#050B16',
+  heroGradTop: '#0C1830',
+  heroGradBottom: '#0A1428',
+  glassBg: 'rgba(10,20,40,0.78)',
+  glassBorder: 'rgba(255,255,255,0.06)',
+  blue: '#2979FF',
+  blueGlow: 'rgba(41,121,255,0.22)',
+  gold: '#F0B429',
+  green: '#00E676',
+  purple: '#9333FF',
+  danger: '#E5382B',
+  dangerBg: 'rgba(229,56,43,0.06)',
+  dangerBorder: 'rgba(229,56,43,0.18)',
+  textMuted: '#8AA0BE',
+  modalCard: '#162035',
+  modalOverlay: 'rgba(0,0,0,0.78)',
+  nationBadgeBg: 'rgba(0,35,149,0.12)',
+  nationBadgeBorder: 'rgba(41,121,255,0.22)',
+} as const;

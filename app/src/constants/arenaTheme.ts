@@ -1,0 +1,22 @@
+/** Palette Arena / Simulator uniquement — violet + or sur fond GOALYA */
+export const ARENA_THEME = {
+  bg: '#0e1a2e',
+  card: '#162035',
+  card2: '#1c2a42',
+  glass: 'rgba(255, 255, 255, 0.06)',
+  border: 'rgba(255, 255, 255, 0.08)',
+  purple: '#8b2be2',
+  purpleLight: '#a855f7',
+  purple2: 'rgba(139, 43, 226, 0.15)',
+  purpleGlow: 'rgba(139, 43, 226, 0.45)',
+  gold: '#f0b429',
+  goldGlow: 'rgba(240, 180, 41, 0.35)',
+  green: '#00e676',
+  red: '#e5382b',
+  text: '#f0f4ff',
+  text2: '#c8d6f0',
+  muted: '#5a7090',
+  muted2: '#8aa0be',
+  live: '#00e676',
+  pitch: '#0f3320',
+} as const;

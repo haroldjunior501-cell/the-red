@@ -1,0 +1,124 @@
+{
+  "rules": {
+    "simulator": {
+      "$seasonId": {
+        "rankings": {
+          "$userId": {
+            ".read": "auth != null",
+            ".write": false,
+            "currentMatch": {
+              ".read": "auth != null",
+              ".write": false
+            },
+            "history": {
+              ".read": "auth != null && auth.uid == $userId",
+              ".write": false
+            }
+          }
+        },
+        "matchday": {
+          "$matchdayId": {
+            "team": {
+              "$userId": {
+                "events": {
+                  ".read": "auth != null && auth.uid == $userId",
+                  ".write": false
+                }
+              }
+            }
+          }
+        },
+        "processedEvents": {
+          ".read": false,
+          ".write": false
+        },
+        "meta": {
+          ".read": "auth != null",
+          ".write": false
+        }
+      }
+    },
+    "matches": {
+      "$matchId": {
+        "chat": {
+          ".read": "auth != null",
+          "$messageId": {
+            ".write": "auth != null"
+          }
+        },
+        "boost": {
+          "$goalId": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          }
+        }
+      }
+    },
+    "supporters": {
+      "active": {
+        "$userId": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $userId"
+        }
+      }
+    },
+    "nations": {
+      "$code": {
+        ".read": "auth != null",
+        "recentActivity": {
+          ".write": "auth != null"
+        },
+        "strength": {
+          ".write": false
+        },
+        "supporterCount": {
+          ".write": false
+        }
+      }
+    },
+    "nations_power": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "top_nations": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "top_supporters": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "global_events": {
+      ".read": "auth != null",
+      "$eventId": {
+        ".write": "auth != null"
+      }
+    },
+    "liveMatches": {
+      "active": {
+        ".read": "auth != null",
+        ".write": false
+      },
+      "scores": {
+        "$matchId": {
+          ".read": "auth != null",
+          ".write": false
+        }
+      }
+    },
+    "liveEvents": {
+      "goals": {
+        ".read": "auth != null",
+        "$goalId": {
+          ".write": false
+        }
+      }
+    },
+    "supporters_online": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    }
+  }
+}

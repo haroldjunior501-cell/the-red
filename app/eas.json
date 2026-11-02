@@ -1,0 +1,55 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "preview"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_AVATARSDK_CLIENT_ID": "placeholder-avatarsdk-client-id",
+        "EXPO_PUBLIC_AVATARSDK_CLIENT_SECRET": "placeholder-avatarsdk-secret",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "placeholder-firebase-api-key",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "goalya.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "goalya",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "goalya.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "27648052527",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:27648052527:web:placeholder",
+        "EXPO_PUBLIC_FIREBASE_DATABASE_URL": "https://goalya-default-rtdb.firebaseio.com/",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "placeholder-ios-client-id",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "placeholder-web-client-id",
+        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN": "placeholder-mapbox-token",
+        "EXPO_PUBLIC_LIVESCORE_KEY": "placeholder-livescore-key",
+        "EXPO_PUBLIC_LIVESCORE_SECRET": "placeholder-livescore-secret",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "placeholder-stripe-publishable-key",
+        "EXPO_PUBLIC_API_URL": "http://localhost:8000/api/v1",
+        "EXPO_PUBLIC_LAUNCH_MODE": "1"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./server/firebase-service-account.json",
+        "track": "internal"
+      }
+    }
+  }
+}

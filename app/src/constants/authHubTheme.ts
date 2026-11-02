@@ -1,0 +1,21 @@
+/** Palette écran Auth inscription / connexion */
+export const AUTH_HUB = {
+  electric: '#DA291C',
+  electricGlow: 'rgba(218,41,28,0.45)',
+  bgTop: '#050203',
+  bgMid: '#12080a',
+  bgBottom: '#1c0a0e',
+  cardBg: 'rgba(20,10,12,0.82)',
+  cardBorder: 'rgba(255,255,255,0.09)',
+  inputBg: 'rgba(6,12,24,0.85)',
+  inputBorder: 'rgba(255,255,255,0.1)',
+  inputFocus: 'rgba(218,41,28,0.55)',
+  text: '#F4F7FC',
+  textMuted: '#8AA0BE',
+  textDim: 'rgba(138,160,190,0.75)',
+  langPillBg: 'rgba(10,20,40,0.88)',
+  footerBlockBg: 'rgba(255,255,255,0.04)',
+  radiusCard: 28,
+  radiusInput: 14,
+  radiusBtn: 14,
+} as const;

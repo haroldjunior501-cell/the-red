@@ -1,0 +1,37 @@
+# GOALYA — Règles Cursor
+
+## Projet
+App mobile football React Native TypeScript Expo
+Coupe du Monde 2026 — expérience aventure émotionnelle
+
+## Stack
+React Native + Expo SDK 54 + TypeScript strict
+State : Zustand | API : React Query | Style : StyleSheet natif
+
+## Design System
+- Couleur principale : #5a8ec4 (bleu acier doux — éviter le néon)
+- Surfaces actives : primaryMuted / primaryBorder (opacité basse)
+- Fond : #070b14 (noir bleuté)
+- Cartes : #0f1623
+- Border : rgba(90, 142, 196, 0.08)
+- Texte principal : #e4e9f2
+- Texte secondaire : #8a96a8
+- Or/FIFA : #c9a84c
+- LIVE / Alert : #e5382b
+- Font display : Bebas Neue
+- Font body : Inter
+- Toujours dark theme
+
+## Architecture
+- screens/ pour les pages
+- components/ pour les éléments réutilisables
+- store/ pour Zustand
+- services/ pour Firebase et API (**`livescoreApi.ts`** / **`livescoreClient`** pour livescore-api.com ; ne pas appeler l’API Football directement depuis les écrans Hub Map)
+- constants/colors.ts pour les couleurs
+
+## Règles
+- TypeScript strict, jamais de any
+- Composants fonctionnels avec hooks
+- StyleSheet.create() pour tous les styles
+- Gestion des erreurs avec try/catch
+- Loading states toujours gérés

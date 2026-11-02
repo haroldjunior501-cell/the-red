@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "27648052527",
+    "firebase_url": "https://goalya-default-rtdb.firebaseio.com",
+    "project_id": "goalya",
+    "storage_bucket": "goalya.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:27648052527:android:0e72ef5f2f298e9297a5da",
+        "android_client_info": {
+          "package_name": "com.goalya.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "27648052527-2isgf6d52q9b2794savhju8odgrebuum.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyPlaceholder000000000000000000"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "27648052527-2isgf6d52q9b2794savhju8odgrebuum.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "27648052527-bjtqv4it18383teft5bkh2lqj9ntpssr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.goalya.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
