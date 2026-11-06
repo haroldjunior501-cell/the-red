@@ -15,40 +15,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { HomeStackParamList } from '../../navigation/HomeStack';
 import type { PlayerStatKind } from '../../constants/homeStats';
 import { playerStatTitle } from '../../constants/homeStats';
-import { useTopAssisters } from '../../hooks/useTopAssisters';
-import { useTopScorers } from '../../hooks/useTopScorers';
+import { COLORS } from '../../constants/colors';
+import { useUnitedPlayerStatRanking } from '../../hooks/useUnitedPlayerStatRanking';
 import { assignDisplayRanks } from '../../utils/statsRank';
 import { PlayerAvatar } from './components/PlayerAvatar';
 
-const DS = {
-  bg: '#060d1a',
-  green: '#2979ff',
-  gold: '#bfa968',
-  gray: '#8896ab',
-  border: 'rgba(255,255,255,0.1)',
-} as const;
-
 type Row = { name: string; team: string; photo?: string; value: number };
-
-function usePlayerRows(stat: PlayerStatKind, limit: number) {
-  const scorers = useTopScorers(limit);
-  const assisters = useTopAssisters(limit);
-
-  const rows = useMemo((): Row[] => {
-    if (stat === 'goals') {
-      return scorers.rows.map((r) => ({ name: r.name, team: r.team, photo: r.photo, value: r.goals }));
-    }
-    if (stat === 'assists') {
-      return assisters.rows.map((r) => ({ name: r.name, team: r.team, photo: r.photo, value: r.assists }));
-    }
-    return scorers.rows.map((r) => ({ name: r.name, team: r.team, photo: r.photo, value: 0 }));
-  }, [assisters.rows, scorers.rows, stat]);
-
-  const loading = stat === 'assists' ? assisters.loading : scorers.loading;
-  const unavailable = stat !== 'goals' && stat !== 'assists';
-
-  return { rows, loading, unavailable };
-}
 
 export default function PlayerStatsRankingScreen() {
   const navigation = useNavigation();
@@ -56,38 +28,48 @@ export default function PlayerStatsRankingScreen() {
   const stat: PlayerStatKind = route.params?.stat ?? 'goals';
   const title = playerStatTitle(stat);
 
-  const { rows, loading, unavailable } = usePlayerRows(stat, 30);
+  const { rows: raw, loading } = useUnitedPlayerStatRanking(stat, 30);
+  const rows = useMemo(
+    (): Row[] =>
+      raw.map((r) => ({
+        name: r.name,
+        team: r.team,
+        photo: r.photo,
+        value: r.value,
+      })),
+    [raw]
+  );
   const ranked = useMemo(() => assignDisplayRanks(rows, (r) => r.value), [rows]);
   const top1 = ranked[0];
 
   return (
     <SafeAreaView style={styles.safe}>
-      <LinearGradient colors={['#0a1830', '#060d1a']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#1c0a0e', '#0c0507']} style={StyleSheet.absoluteFill} />
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={12}>
           <MaterialCommunityIcons name="chevron-left" size={32} color="#fff" />
         </Pressable>
-        <Text style={styles.title}>{title}</Text>
+        <View style={styles.titleCol}>
+          <Text style={styles.eyebrow}>MANCHESTER UNITED</Text>
+          <Text style={styles.title}>{title}</Text>
+        </View>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <ActivityIndicator color={DS.green} style={{ marginVertical: 40 }} />
-        ) : unavailable ? (
-          <Text style={styles.empty}>
-            Statistique « {title} » bientôt disponible pour la compétition.
-          </Text>
+          <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 40 }} />
         ) : ranked.length === 0 ? (
           <Text style={styles.empty}>Classement indisponible pour le moment.</Text>
         ) : (
           <>
-            {stat === 'goals' && top1 ? (
+            {top1 ? (
               <View style={styles.hero}>
                 <PlayerAvatar photo={top1.photo} size={80} />
                 <Text style={styles.heroKicker}>#1</Text>
                 <Text style={styles.heroName}>{top1.name}</Text>
                 <Text style={styles.heroTeam}>{top1.team}</Text>
+                <Text style={styles.heroVal}>{top1.value}</Text>
               </View>
             ) : null}
 
@@ -99,7 +81,7 @@ export default function PlayerStatsRankingScreen() {
                   <Text style={styles.name} numberOfLines={1}>
                     {row.name}
                   </Text>
-                  <Text style={styles.sub} numberOfLines={1}>
+                  <Text style={styles.team} numberOfLines={1}>
                     {row.team}
                   </Text>
                 </View>
@@ -114,40 +96,85 @@ export default function PlayerStatsRankingScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: DS.bg },
+  safe: { flex: 1, backgroundColor: COLORS.bgDeep },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 8,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 40, alignItems: 'center' },
+  titleCol: { flex: 1, alignItems: 'center' },
+  eyebrow: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 9,
+    letterSpacing: 1.6,
+    color: COLORS.gold,
+  },
   title: {
-    flex: 1,
-    color: '#fff',
     fontFamily: 'BebasNeue_400Regular',
-    fontSize: 40,
-    letterSpacing: 0.5,
-    textAlign: 'left',
-    marginLeft: 4,
+    fontSize: 24,
+    letterSpacing: 2,
+    color: '#fff',
   },
   content: { paddingHorizontal: 16, paddingBottom: 40 },
-  hero: { alignItems: 'center', paddingVertical: 20, marginBottom: 12, gap: 6 },
-  heroKicker: { color: DS.gold, fontWeight: '800', fontSize: 12, letterSpacing: 1.2, marginTop: 8 },
-  heroName: { color: '#fff', fontSize: 22, fontWeight: '900', textAlign: 'center' },
-  heroTeam: { color: DS.gray, fontSize: 14 },
+  empty: {
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginTop: 40,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  hero: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    marginBottom: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    backgroundColor: COLORS.primaryFillSoft,
+  },
+  heroKicker: {
+    marginTop: 8,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
+    color: COLORS.gold,
+    letterSpacing: 2,
+  },
+  heroName: {
+    fontFamily: 'Inter_800ExtraBold',
+    fontSize: 20,
+    color: '#fff',
+    marginTop: 4,
+  },
+  heroTeam: { color: COLORS.textMuted, marginTop: 2, fontSize: 13 },
+  heroVal: {
+    marginTop: 8,
+    fontFamily: 'BebasNeue_400Regular',
+    fontSize: 32,
+    color: COLORS.primaryLight,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: DS.border,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
   },
-  rank: { width: 28, color: 'rgba(255,255,255,0.55)', fontSize: 16, fontWeight: '700' },
+  rank: {
+    width: 28,
+    fontFamily: 'BebasNeue_400Regular',
+    fontSize: 18,
+    color: COLORS.textMuted,
+  },
   mid: { flex: 1, minWidth: 0 },
-  name: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  sub: { color: DS.gray, fontSize: 13, marginTop: 3 },
-  val: { color: '#fff', fontSize: 22, fontWeight: '800', minWidth: 36, textAlign: 'right' },
-  empty: { color: DS.gray, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 32, paddingHorizontal: 12 },
+  name: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 14 },
+  team: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
+  val: {
+    fontFamily: 'BebasNeue_400Regular',
+    fontSize: 22,
+    color: COLORS.gold,
+    minWidth: 40,
+    textAlign: 'right',
+  },
 });

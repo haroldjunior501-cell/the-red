@@ -1,7 +1,7 @@
 import type { ImageSourcePropType } from 'react-native';
 import { COLORS, GOALYA_BLUE_RGB } from './colors';
 
-export type GameModeKey = 'tableau' | 'pronos' | 'arena' | 'fantasy';
+export type GameModeKey = 'pronos' | 'pickxi' | 'quiz' | 'rating';
 
 export type GameModeConfig = {
   key: GameModeKey;
@@ -22,24 +22,14 @@ export const GAME_CARD_GAP = 14;
 export const GAME_CARD_RADIUS = 24;
 export const GAME_CARD_SNAP = GAME_CARD_WIDTH + GAME_CARD_GAP;
 
+/** Modes de jeu THE RED — United Predictions + engagement fans. */
 export const GAME_MODES: readonly GameModeConfig[] = [
-  {
-    key: 'tableau',
-    label: 'TABLEAU',
-    title: 'Tableau',
-    description: 'Pronostique le vainqueur',
-    cta: 'Jouer au Tableau',
-    accent: '#c9a84c',
-    accentSoft: 'rgba(201, 168, 76, 0.35)',
-    glow: '#c9a84c',
-    image: require('../../assets/images/games/tableau_bg.jpg'),
-  },
   {
     key: 'pronos',
     label: 'PRONOS',
-    title: 'Pronos',
-    description: 'Devine les scores',
-    cta: 'Jouer aux Pronos',
+    title: 'Pronos United',
+    description: 'XI · Buteur · POTM · Score',
+    cta: 'Pronostiquer',
     accent: COLORS.primary,
     accentSoft: `rgba(${GOALYA_BLUE_RGB}, 0.4)`,
     glow: COLORS.primary,
@@ -47,22 +37,33 @@ export const GAME_MODES: readonly GameModeConfig[] = [
     image: require('../../assets/images/games/pronos_bg.jpg'),
   },
   {
-    key: 'arena',
-    label: 'ARENA',
-    title: 'Simulator',
-    description: 'Fantasy World Cup · Classement mondial',
-    cta: 'Entrer au Simulator',
+    key: 'pickxi',
+    label: 'PICK XI',
+    title: 'Pick Your XI',
+    description: 'Compose ton onze United',
+    cta: 'Choisir mon XI',
+    accent: COLORS.gold,
+    accentSoft: 'rgba(251, 225, 34, 0.35)',
+    glow: COLORS.gold,
+    image: require('../../assets/images/games/pickxi_bg.jpg'),
+  },
+  {
+    key: 'quiz',
+    label: 'QUIZ',
+    title: 'Quiz & Sondages',
+    description: 'Actus, stats & histoire',
+    cta: 'Jouer',
     accent: '#4d8fff',
     accentSoft: 'rgba(77, 143, 255, 0.38)',
     glow: '#4d8fff',
     image: require('../../assets/images/games/arena_bg.jpg'),
   },
   {
-    key: 'fantasy',
-    label: 'FANTASY',
-    title: 'Fantasy',
-    description: 'Crée ton équipe de rêve CdM',
-    cta: 'Jouer au Fantasy',
+    key: 'rating',
+    label: 'NOTES',
+    title: 'Note les joueurs',
+    description: 'Après-match · classement fans',
+    cta: 'Noter',
     accent: '#9b6dff',
     accentSoft: 'rgba(155, 109, 255, 0.4)',
     glow: '#9b6dff',

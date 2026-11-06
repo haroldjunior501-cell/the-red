@@ -1,16 +1,11 @@
 /**
- * Système hybride GOALYA — CDM 2026
- *
- * Live Score API : matchs, live, classements, événements, calendrier (source principale)
- * FotMob : visages joueurs, stats avancées, buteurs/passeurs enrichis, pool Fantasy
+ * THE RED — Premier League / Manchester United
+ * Buteurs & passeurs : overview FotMob ligue 47.
  */
-import { parseTopScorers } from './liveMatchParsers';
 import {
-  providerGetTopScorers,
   getActiveFootballDataSource,
-  isFootballDataConfigured,
 } from './footballDataProvider';
-import { enrichNamesWithPhotos, getFotmobLeaderboards } from './fotmobPlayerEnrichment';
+import { getPremierLeagueTopAssisters, getPremierLeagueTopScorers } from './fotmobClubApi';
 import type { TopScorerRow } from '../types/live.types';
 
 export type HybridTopScorer = TopScorerRow & {
@@ -40,51 +35,27 @@ export function getFootballHybridMeta(): FootballHybridMeta {
   };
 }
 
-/** Meilleurs buteurs : classement Live Score + photos / IDs FotMob. */
+/** Meilleurs buteurs Premier League (FotMob). */
 export async function getHybridTopScorers(limit = 15): Promise<HybridTopScorer[]> {
-  let base: TopScorerRow[] = [];
-
-  if (isFootballDataConfigured()) {
-    try {
-      const payload = await providerGetTopScorers();
-      base = parseTopScorers(payload).slice(0, limit);
-    } catch {
-      base = [];
-    }
-  }
-
-  if (base.length === 0) {
-    const { scorers } = await getFotmobLeaderboards(limit);
-    return scorers.map((p, i) => ({
-      name: p.name,
-      team: p.country ?? '—',
-      country_code: '',
-      goals: typeof p.goals === 'number' ? p.goals : Number(p.goals) || 0,
-      photo: p.photo,
-      fotmobId: p.fotmobId,
-      rank: i + 1,
-    }));
-  }
-
-  const enriched = await enrichNamesWithPhotos(
-    base.map((r) => ({ name: r.name, team: r.team }))
-  );
-
-  return enriched.map((row, i) => ({
-    ...base[i],
-    photo: row.photo,
-    fotmobId: row.fotmobId,
+  const rows = await getPremierLeagueTopScorers(limit);
+  return rows.map((p, i) => ({
+    name: p.name,
+    team: p.team,
+    country_code: '',
+    goals: p.goals,
+    photo: p.photo,
+    fotmobId: p.fotmobId,
     rank: i + 1,
   }));
 }
 
-/** Meilleurs passeurs — FotMob (overview ligue 77), secours vide. */
+/** Meilleurs passeurs Premier League (FotMob). */
 export async function getHybridTopAssisters(limit = 10): Promise<HybridTopAssister[]> {
-  const { assisters } = await getFotmobLeaderboards(limit);
-  return assisters.map((p, i) => ({
+  const rows = await getPremierLeagueTopAssisters(limit);
+  return rows.map((p, i) => ({
     name: p.name,
-    team: p.country ?? '—',
-    assists: typeof p.assists === 'number' ? p.assists : Number(p.assists) || 0,
+    team: p.team,
+    assists: p.assists,
     photo: p.photo,
     fotmobId: p.fotmobId,
     rank: i + 1,

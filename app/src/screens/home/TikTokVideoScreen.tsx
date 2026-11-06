@@ -105,6 +105,7 @@ function ImmanquablePage({
           shouldPlay={active}
           isLooping
           isMuted={false}
+          titleHint={item.title}
         />
       ) : (
         <View style={styles.noVideoWrap}>
@@ -242,7 +243,7 @@ export default function TikTokVideoScreen() {
           <MaterialCommunityIcons name="chevron-left" size={28} color="#fff" />
         </Pressable>
         <Text style={styles.loaderTxt}>Aucun immanquable pour le moment</Text>
-        <Text style={styles.loaderSub}>Publie des vidéos type « Immanquable » dans l’admin.</Text>
+        <Text style={styles.loaderSub}>Chargement des contenus @manutd…</Text>
       </View>
     );
   }

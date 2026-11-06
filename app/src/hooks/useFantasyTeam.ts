@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BENCH_SLOT_KEYS, FORMATION_LABEL } from '../constants/fantasyPitch';
-import { FANTASY_BUDGET_M } from '../constants/fantasyTheme';
+import { ALL_SLOT_KEYS, BENCH_SLOT_KEYS, FORMATION_LABEL } from '../constants/fantasyPitch';
 import { fotmobPlayerImageUrl } from '../constants/fotmob';
 import {
   emptyBench,
@@ -9,6 +8,7 @@ import {
   saveFantasyTeamDoc,
   type FantasySaveResult,
 } from '../services/fantasyService';
+import { savePickXi } from '../services/unitedGamesService';
 import { useUserStore } from '../store/useUserStore';
 import type {
   FantasyBenchSlotKey,
@@ -18,6 +18,7 @@ import type {
   FantasySlotsState,
   FantasyTeamDoc,
 } from '../types/fantasy.types';
+import type { UnitedFormation } from '../constants/unitedGames';
 
 function countFilled(slots: FantasySlotsState): number {
   return Object.values(slots).filter(Boolean).length;
@@ -25,11 +26,6 @@ function countFilled(slots: FantasySlotsState): number {
 
 function countBenchFilled(bench: FantasyBenchState): number {
   return Object.values(bench).filter(Boolean).length;
-}
-
-function sumSpent(slots: FantasySlotsState, bench: FantasyBenchState): number {
-  const all = [...Object.values(slots), ...Object.values(bench)];
-  return all.reduce((s, p) => s + (p?.price ?? 0), 0);
 }
 
 function sumPts(
@@ -77,7 +73,8 @@ function enrichBench(bench: FantasyBenchState): FantasyBenchState {
   return next;
 }
 
-export function useFantasyTeam(budgetCapM: number = FANTASY_BUDGET_M) {
+/** Fantasy United = Pick Your XI — pas de budget / pas d’achat. */
+export function useFantasyTeam(_budgetCapMIgnored?: number) {
   const userId = useUserStore((s) => s.userId);
   const countryCode = useUserStore((s) => s.countryCode);
   const [slots, setSlots] = useState<FantasySlotsState>(() => emptySlots());
@@ -127,8 +124,8 @@ export function useFantasyTeam(budgetCapM: number = FANTASY_BUDGET_M) {
     };
   }, [userId]);
 
-  const spent = useMemo(() => sumSpent(slots, bench), [slots, bench]);
-  const remaining = budgetCapM - spent;
+  const spent = 0;
+  const remaining = 0;
   const filledCount = useMemo(() => countFilled(slots), [slots]);
   const benchCount = useMemo(() => countBenchFilled(bench), [bench]);
   const totalPoints = useMemo(() => sumPts(slots, bench, captainSlot), [slots, bench, captainSlot]);
@@ -177,16 +174,11 @@ export function useFantasyTeam(budgetCapM: number = FANTASY_BUDGET_M) {
         setError('Joueur déjà dans l\'équipe');
         return false;
       }
-      const nextSpent = spent - (slots[slotKey]?.price ?? 0) + player.price;
-      if (nextSpent > budgetCapM) {
-        setError('Budget insuffisant');
-        return false;
-      }
       setSlots((prev) => ({ ...prev, [slotKey]: player }));
       setError(null);
       return true;
     },
-    [budgetCapM, playerUsedInTeam, slots, spent]
+    [playerUsedInTeam]
   );
 
   const assignBenchPlayer = useCallback(
@@ -195,16 +187,11 @@ export function useFantasyTeam(budgetCapM: number = FANTASY_BUDGET_M) {
         setError('Joueur déjà dans l\'équipe');
         return false;
       }
-      const nextSpent = spent - (bench[benchKey]?.price ?? 0) + player.price;
-      if (nextSpent > FANTASY_BUDGET_M) {
-        setError('Budget insuffisant');
-        return false;
-      }
       setBench((prev) => ({ ...prev, [benchKey]: player }));
       setError(null);
       return true;
     },
-    [bench, budgetCapM, playerUsedInTeam, spent]
+    [playerUsedInTeam]
   );
 
   const clearBenchSlot = useCallback((benchKey: FantasyBenchSlotKey) => {
@@ -240,20 +227,35 @@ export function useFantasyTeam(budgetCapM: number = FANTASY_BUDGET_M) {
         bench,
         captainSlot,
         totalPoints,
-        budget: budgetCapM,
-        spent,
+        budget: 0,
+        spent: 0,
       };
       const result: FantasySaveResult = await saveFantasyTeamDoc(userId, team, countryCode);
       if (!result.ok) {
         setError('Sauvegarde impossible');
         return false;
       }
+
+      // Sync Pick Your XI (même onze United)
+      if (userId) {
+        const starters = ALL_SLOT_KEYS.map((k) => slots[k]?.id).filter(
+          (id): id is string => Boolean(id)
+        );
+        await savePickXi(userId, {
+          matchId: 'current',
+          segment: 'men',
+          formation: FORMATION_LABEL as UnitedFormation,
+          starters,
+          submittedAt: Date.now(),
+        }).catch(() => undefined);
+      }
+
       if (result.mode === 'cloud') {
-        setSaveSuccess('Équipe enregistrée avec succès');
+        setSaveSuccess('XI United enregistré (Fantasy + Pick Your XI)');
       } else if (result.cloudError) {
         setError(`Synchronisation cloud impossible : ${result.cloudError}`);
       } else {
-        setSaveSuccess('Équipe enregistrée sur cet appareil');
+        setSaveSuccess('XI enregistré sur cet appareil');
       }
       return true;
     } catch {
@@ -262,7 +264,7 @@ export function useFantasyTeam(budgetCapM: number = FANTASY_BUDGET_M) {
     } finally {
       setSaving(false);
     }
-  }, [bench, budgetCapM, captainSlot, countryCode, filledCount, slots, spent, totalPoints, userId]);
+  }, [bench, captainSlot, countryCode, filledCount, slots, totalPoints, userId]);
 
   return {
     slots,

@@ -2,17 +2,17 @@ import React, { memo } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { StyleSheet } from 'react-native';
 import type { LiveFilterKey } from '../../../types/live.types';
-import { worldCupDayLabel } from '../../../utils/liveMatchUtils';
-import { COLORS } from '../../../constants/colors';
+import { COLORS, UNITED_RED } from '../../../constants/colors';
 import { DS } from '../LiveScreen.styles';
 
 const FILTERS: { key: LiveFilterKey; label: string }[] = [
-  { key: 'all', label: 'Matchs' },
-  { key: 'groupes', label: 'Groupes' },
-  { key: '1/8', label: '1/8' },
-  { key: '1/4', label: '1/4' },
-  { key: 'demi', label: 'Demi' },
-  { key: 'finale', label: 'Finale' },
+  { key: 'all', label: 'Tous' },
+  { key: 'live', label: 'En direct' },
+  { key: 'upcoming', label: 'À venir' },
+  { key: 'played', label: 'Terminés' },
+  { key: 'pl', label: 'PL' },
+  { key: 'ucl', label: 'UCL' },
+  { key: 'cups', label: 'Cups' },
 ];
 
 export type LiveHeaderProps = {
@@ -24,9 +24,9 @@ export const LiveHeader = memo(function LiveHeader({ filter, onFilter }: LiveHea
   return (
     <View style={styles.wrap}>
       <View style={styles.top}>
-        <Text style={styles.title}>LIVE MATCHES</Text>
+        <Text style={styles.title}>LIVE UNITED</Text>
         <View style={styles.badge}>
-          <Text style={styles.badgeTxt}>{worldCupDayLabel()}</Text>
+          <Text style={styles.badgeTxt}>Centre match</Text>
         </View>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     borderColor: DS.border,
     backgroundColor: DS.card,
   },
-  chipOn: { borderColor: COLORS.primaryBorder, backgroundColor: COLORS.primaryMuted },
+  chipOn: { borderColor: UNITED_RED, backgroundColor: 'rgba(218,41,28,0.22)' },
   chipTxt: { color: DS.muted, fontSize: 12, fontWeight: '600' },
-  chipTxtOn: { color: COLORS.primarySoft },
+  chipTxtOn: { color: '#fff' },
 });

@@ -13,21 +13,19 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { LiveStackParamList } from '../../navigation/LiveStack';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
-import { useLiveAllGroups } from '../../hooks/useLiveAllGroups';
 import { useLiveMoments } from '../../hooks/useLiveMoments';
-import { useLiveStandings } from '../../hooks/useLiveStandings';
+import { useTheRedHome } from '../../hooks/useTheRedHome';
 import type { LiveFilterKey, LiveMatch } from '../../types/live.types';
 import { LiveHeader } from './components/LiveHeader';
 import { FeaturedMatch } from './components/FeaturedMatch';
 import { MatchList } from './components/MatchList';
-import { StandingsPanel } from './components/StandingsPanel';
 import { MostWatched } from './components/MostWatched';
 import { MomentsPanel } from './components/MomentsPanel';
 import { UpcomingMatchList } from './components/UpcomingMatchList';
-import { AllGroupsPanel } from './components/AllGroupsPanel';
 import { EmptyState } from '../../components/EmptyState';
-import { WC_2026_FIRST_MATCH_LABEL } from '../../constants/worldCupLaunch';
+import { PremierLeagueTableCard } from '../home/components/PremierLeagueTableCard';
 import { ScreenAmbience } from '../../components/ui/ScreenAmbience';
+import { UNITED_RED } from '../../constants/colors';
 import { LIVE_TAB_BAR_HEIGHT, liveStyles } from './LiveScreen.styles';
 
 type Nav = StackNavigationProp<LiveStackParamList, 'LiveHome'>;
@@ -53,12 +51,7 @@ export default function LiveScreen() {
     refetch,
   } = useLiveMatches(filter);
 
-  const { groups, loading: groupsLoading, error: groupsError, refetch: refetchGroups } = useLiveAllGroups(
-    filter === 'groupes'
-  );
-
-  const groupName = featuredMatch?.group ?? 'Group A';
-  const { standings, loading: standingsLoading, groupLetter } = useLiveStandings(groupName);
+  const { leagueTable, loadingStatic } = useTheRedHome();
   const { moments } = useLiveMoments(matches);
 
   const openMatch = useCallback(
@@ -70,28 +63,13 @@ export default function LiveScreen() {
 
   const onRefresh = useCallback(() => {
     refetch();
-    if (filter === 'groupes') refetchGroups();
-  }, [filter, refetch, refetchGroups]);
+  }, [refetch]);
 
   const renderMain = () => {
-    if (filter === 'groupes') {
-      return <AllGroupsPanel groups={groups} loading={groupsLoading} error={groupsError} />;
-    }
-
-    if (status === 'disabled') {
-      return (
-        <View style={liveStyles.center}>
-          <Text style={liveStyles.centerText}>
-            Le flux live sera disponible très bientôt. En attendant, consulte les pronos et le programme.
-          </Text>
-        </View>
-      );
-    }
-
     if (loading && !matches.length && !upcomingMatches.length) {
       return (
         <View style={liveStyles.center}>
-          <ActivityIndicator size="large" color="#5b9aff" />
+          <ActivityIndicator size="large" color={UNITED_RED} />
         </View>
       );
     }
@@ -107,7 +85,18 @@ export default function LiveScreen() {
       );
     }
 
-    if (status === 'upcoming' || (status === 'empty' && upcomingMatches.length > 0)) {
+    if (filter === 'upcoming') {
+      if (!upcomingMatches.length) {
+        return (
+          <EmptyState
+            icon="📅"
+            title="Aucun match à venir"
+            subtitle="Le prochain match United apparaîtra ici."
+            ctaLabel="Actualiser"
+            onCta={refetch}
+          />
+        );
+      }
       return (
         <UpcomingMatchList
           matches={upcomingMatches}
@@ -117,15 +106,24 @@ export default function LiveScreen() {
       );
     }
 
-    if (status === 'empty') {
-      const nextLabel =
-        upcomingMatches[0]?.kickoff_label ??
-        `Coupe du Monde · ${WC_2026_FIRST_MATCH_LABEL}`;
+    if (status === 'empty' && !matches.length && !upcomingMatches.length) {
       return (
         <EmptyState
           icon="📺"
-          title="Aucun match en cours"
-          subtitle={`Prochain match : ${nextLabel}`}
+          title="Aucun match United"
+          subtitle="Le programme de la saison sera synchronisé automatiquement."
+          ctaLabel="Actualiser"
+          onCta={refetch}
+        />
+      );
+    }
+
+    if (filter === 'live' && matches.length === 0) {
+      return (
+        <EmptyState
+          icon="🔴"
+          title="Pas de match en direct"
+          subtitle="Dès qu’United joue, le score et la chronologie apparaîtront ici."
           ctaLabel="Actualiser"
           onCta={refetch}
         />
@@ -137,7 +135,13 @@ export default function LiveScreen() {
         {featuredMatch ? (
           <FeaturedMatch
             match={featuredMatch}
-            engagement={engagementById[featuredMatch.id] ?? { viewerCount: 0, messageCount: 0, chaosLevel: 0 }}
+            engagement={
+              engagementById[featuredMatch.id] ?? {
+                viewerCount: 0,
+                messageCount: 0,
+                chaosLevel: 0,
+              }
+            }
             onPress={() => openMatch(featuredMatch)}
           />
         ) : null}
@@ -147,7 +151,7 @@ export default function LiveScreen() {
 
     const right = (
       <View style={wide ? liveStyles.colRight : liveStyles.colStack}>
-        <StandingsPanel standings={standings} loading={standingsLoading} groupLetter={groupLetter} />
+        <PremierLeagueTableCard table={leagueTable} loading={loadingStatic} />
         <MostWatched matches={matches} engagementById={engagementById} />
         <MomentsPanel moments={moments} />
       </View>
@@ -167,11 +171,9 @@ export default function LiveScreen() {
   };
 
   const scrollFillsViewport =
-    filter !== 'groupes' &&
-    (status === 'disabled' ||
-      (loading && !matches.length && !upcomingMatches.length) ||
-      status === 'error' ||
-      (status === 'empty' && upcomingMatches.length === 0));
+    (loading && !matches.length && !upcomingMatches.length) ||
+    status === 'error' ||
+    (status === 'empty' && !upcomingMatches.length);
 
   return (
     <SafeAreaView style={liveStyles.safe} edges={['top']}>
@@ -187,7 +189,12 @@ export default function LiveScreen() {
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
           refreshControl={
-            <RefreshControl refreshing={loading || groupsLoading} onRefresh={onRefresh} tintColor="#5b9aff" />
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={onRefresh}
+              tintColor={UNITED_RED}
+              colors={[UNITED_RED]}
+            />
           }
         >
           <LiveHeader filter={filter} onFilter={setFilter} />

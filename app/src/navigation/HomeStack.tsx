@@ -8,6 +8,7 @@ import TopScorersScreen from '../screens/home/TopScorersScreen';
 import PlayerStatsRankingScreen from '../screens/home/PlayerStatsRankingScreen';
 import TeamStatsRankingScreen from '../screens/home/TeamStatsRankingScreen';
 import StatsHubScreen from '../screens/home/StatsHubScreen';
+import PremierLeagueTableScreen from '../screens/home/PremierLeagueTableScreen';
 import ImmanquableAllScreen from '../screens/home/ImmanquableAllScreen';
 import TikTokVideoScreen from '../screens/home/TikTokVideoScreen';
 import MomentsFortsAllScreen from '../screens/home/MomentsFortsAllScreen';
@@ -19,12 +20,21 @@ import type { LegalDocumentKey } from '../constants/legalUrls';
 import type { PlayerStatKind, TeamStatKind } from '../constants/homeStats';
 import TableauScreen from '../screens/TableauScreen';
 import PronosScreen from '../screens/PronosScreen';
+import UnitedPronosScreen from '../screens/UnitedGames/UnitedPronosScreen';
+import PickYourXiScreen from '../screens/UnitedGames/PickYourXiScreen';
+import UnitedQuizScreen from '../screens/UnitedGames/UnitedQuizScreen';
+import UnitedRatingScreen from '../screens/UnitedGames/UnitedRatingScreen';
+import UnitedStandingsScreen from '../screens/UnitedGames/UnitedStandingsScreen';
 import ArenaScreen from '../screens/ArenaScreen';
 import FullRankingScreen from '../screens/ArenaScreen/FullRankingScreen';
 import MatchDetailScreen from '../screens/ArenaScreen/MatchDetailScreen';
+import ClubNewsScreen from '../screens/home/ClubNewsScreen';
+import ClubNewsArticleScreen from '../screens/home/ClubNewsArticleScreen';
 
 export type HomeStackParamList = {
   HomeFeed: undefined;
+  ClubNews: undefined;
+  ClubNewsArticle: { articleId: string };
   MatchDetails: {
     fixtureId?: string;
     selfCode?: string;
@@ -43,11 +53,17 @@ export type HomeStackParamList = {
   PlayHub: undefined;
   Tableau: undefined;
   Pronos: undefined;
+  PronosLegacy: undefined;
+  PickYourXi: undefined;
+  UnitedQuiz: undefined;
+  UnitedRating: undefined;
+  UnitedStandings: undefined;
   Arena: undefined;
   FullRanking: undefined;
   MatchDetail: undefined;
   TopScorers: { stat: PlayerStatKind };
   StatsHub: undefined;
+  PremierLeagueTable: undefined;
   MomentsFortsAll: undefined;
   MomentsFortsFeed: { startIndex: number; videoId?: string };
   ImmanquableAll: undefined;
@@ -71,11 +87,18 @@ export default function HomeStack() {
       }}
     >
       <Stack.Screen name="HomeFeed" component={HomeScreen} />
+      <Stack.Screen name="ClubNews" component={ClubNewsScreen} />
+      <Stack.Screen name="ClubNewsArticle" component={ClubNewsArticleScreen} />
       <Stack.Screen name="MatchDetails" component={MatchDetailsScreen} />
       <Stack.Screen name="PreMatch" component={PreMatchScreen} />
       <Stack.Screen name="PlayHub" component={PlayHubScreen} />
       <Stack.Screen name="Tableau" component={TableauScreen} />
-      <Stack.Screen name="Pronos" component={PronosScreen} />
+      <Stack.Screen name="Pronos" component={UnitedPronosScreen} />
+      <Stack.Screen name="PronosLegacy" component={PronosScreen} />
+      <Stack.Screen name="PickYourXi" component={PickYourXiScreen} />
+      <Stack.Screen name="UnitedQuiz" component={UnitedQuizScreen} />
+      <Stack.Screen name="UnitedRating" component={UnitedRatingScreen} />
+      <Stack.Screen name="UnitedStandings" component={UnitedStandingsScreen} />
       <Stack.Screen name="Arena" component={ArenaScreen} />
       <Stack.Screen name="FullRanking" component={FullRankingScreen} />
       <Stack.Screen name="MatchDetail" component={MatchDetailScreen} />
@@ -83,6 +106,7 @@ export default function HomeStack() {
       <Stack.Screen name="PlayerStatsRanking" component={PlayerStatsRankingScreen} />
       <Stack.Screen name="TeamStatsRanking" component={TeamStatsRankingScreen} />
       <Stack.Screen name="StatsHub" component={StatsHubScreen} />
+      <Stack.Screen name="PremierLeagueTable" component={PremierLeagueTableScreen} />
       <Stack.Screen name="MomentsFortsAll" component={MomentsFortsAllScreen} />
       <Stack.Screen
         name="MomentsFortsFeed"

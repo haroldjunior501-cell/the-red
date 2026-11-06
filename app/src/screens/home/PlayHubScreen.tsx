@@ -7,18 +7,19 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { TabsParamList } from '../../navigation/AppTabs';
 import type { HomeStackParamList } from '../../navigation/HomeStack';
 import { COLORS } from '../../constants/colors';
+import { GAME_MODES } from '../../constants/gameModes';
 
 type Nav = CompositeNavigationProp<
   StackNavigationProp<HomeStackParamList, 'PlayHub'>,
   BottomTabNavigationProp<TabsParamList>
 >;
 
-const LINKS = [
-  { label: 'Tableau', route: 'Tableau' as const },
-  { label: 'Pronos', route: 'Pronos' as const },
-  { label: 'Arena', route: 'Arena' as const },
-  { label: 'Fantasy', tab: 'Fantasy' as const },
-];
+const ROUTE_BY_KEY = {
+  pronos: 'Pronos' as const,
+  pickxi: 'PickYourXi' as const,
+  quiz: 'UnitedQuiz' as const,
+  rating: 'UnitedRating' as const,
+};
 
 export default function PlayHubScreen() {
   const navigation = useNavigation<Nav>();
@@ -26,24 +27,37 @@ export default function PlayHubScreen() {
   return (
     <View style={styles.root}>
       <Text style={styles.title}>VENEZ JOUER</Text>
-      <Text style={styles.sub}>Choisis ton mode — chaque victoire renforce ta nation.</Text>
+      <Text style={styles.sub}>
+        Pronos United, Pick XI (Fantasy), quiz et notes — points Hommes + Femmes pour les
+        classements et bons boutique.
+      </Text>
       <ScrollView contentContainerStyle={styles.list}>
-        {LINKS.map((item) => (
+        {GAME_MODES.map((mode) => (
           <Pressable
-            key={item.label}
+            key={mode.key}
             style={styles.row}
             onPress={() => {
-              if ('tab' in item) {
+              if (mode.key === 'pickxi') {
                 navigation.getParent()?.navigate('Fantasy');
-              } else {
-                navigation.navigate(item.route);
+                return;
               }
+              navigation.navigate(ROUTE_BY_KEY[mode.key]);
             }}
           >
-            <Text style={styles.rowT}>{item.label}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowT}>{mode.title}</Text>
+              <Text style={styles.rowS}>{mode.description}</Text>
+            </View>
             <Text style={styles.rowGo}>→</Text>
           </Pressable>
         ))}
+        <Pressable style={styles.row} onPress={() => navigation.navigate('UnitedStandings')}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowT}>Classement fans</Text>
+            <Text style={styles.rowS}>Mensuel & saison · H+F combinés</Text>
+          </View>
+          <Text style={styles.rowGo}>→</Text>
+        </Pressable>
       </ScrollView>
       <Pressable style={styles.btn} onPress={() => navigation.goBack()}>
         <Text style={styles.btnT}>Retour</Text>
@@ -66,8 +80,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.card,
+    gap: 12,
   },
   rowT: { color: COLORS.text, fontWeight: '800', fontSize: 16 },
+  rowS: { color: COLORS.textMuted, fontSize: 12, marginTop: 4 },
   rowGo: { color: COLORS.primary, fontWeight: '900', fontSize: 18 },
   btn: {
     marginTop: 8,

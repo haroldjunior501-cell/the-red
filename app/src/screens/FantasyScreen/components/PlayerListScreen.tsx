@@ -1,6 +1,7 @@
 import React, { memo, useMemo, useState } from 'react';
 import {
-  Animated,
+  ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,13 +20,14 @@ export type SortKey = 'price' | 'pts' | 'goals' | 'rating';
 
 export type PlayerListScreenProps = {
   visible: boolean;
-  slideAnim: Animated.Value;
+  /** Conservé pour compat — la liste est en Modal plein écran. */
+  slideAnim?: unknown;
   position: FantasyListPosition;
   players: FantasyPitchPlayer[];
   usedIds: Set<string>;
   loading?: boolean;
-  /** Mode remplaçant : tous postes, titre adapté */
   benchMode?: boolean;
+  hidePrice?: boolean;
   onClose: () => void;
   onSelect: (player: FantasyPitchPlayer) => void;
 };
@@ -35,11 +37,13 @@ function PlayerListRow({
   position,
   onSelect,
   disabled,
+  hidePrice,
 }: {
   player: FantasyPitchPlayer;
   position: FantasyListPosition;
   onSelect: () => void;
   disabled: boolean;
+  hidePrice?: boolean;
 }) {
   const posLabel = position === 'MID' ? 'MIL' : position;
 
@@ -56,8 +60,8 @@ function PlayerListRow({
       <View style={styles.info}>
         <Text style={styles.name}>{player.name}</Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {player.country}
-          {player.club ? ` · ${player.club}` : ''}
+          {player.club || player.country}
+          {player.number ? ` · #${player.number}` : ''}
         </Text>
       </View>
       <View style={styles.stats}>
@@ -70,28 +74,11 @@ function PlayerListRow({
           <Text style={styles.statLbl}>Note</Text>
         </View>
       </View>
-      <View style={styles.priceCol}>
-        <Text
-          style={[
-            styles.price,
-            player.priceTrend === 'up' && styles.priceUp,
-            player.priceTrend === 'down' && styles.priceDown,
-          ]}
-        >
-          {player.price}M
-        </Text>
-        {player.priceTrend && player.priceTrend !== 'stable' ? (
-          <Text
-            style={[
-              styles.trend,
-              player.priceTrend === 'up' && styles.priceUp,
-              player.priceTrend === 'down' && styles.priceDown,
-            ]}
-          >
-            {player.priceTrend === 'up' ? '↑' : '↓'}
-          </Text>
-        ) : null}
-      </View>
+      {!hidePrice ? (
+        <View style={styles.priceCol}>
+          <Text style={styles.price}>{player.price}M</Text>
+        </View>
+      ) : null}
       <View style={[styles.addBtn, disabled && styles.addBtnOff]}>
         <Text style={styles.addIcon}>{disabled ? '✓' : '+'}</Text>
       </View>
@@ -101,12 +88,12 @@ function PlayerListRow({
 
 export const PlayerListScreen = memo(function PlayerListScreen({
   visible,
-  slideAnim,
   position,
   players,
   usedIds,
   loading,
   benchMode,
+  hidePrice,
   onClose,
   onSelect,
 }: PlayerListScreenProps) {
@@ -115,13 +102,13 @@ export const PlayerListScreen = memo(function PlayerListScreen({
     ? {
         title: 'REMPLAÇANTS',
         badge: 'SUB',
-        badgeBg: 'rgba(41,121,255,0.15)',
-        badgeBorder: 'rgba(41,121,255,0.3)',
-        badgeColor: '#5b9aff',
+        badgeBg: 'rgba(218,41,28,0.15)',
+        badgeBorder: 'rgba(218,41,28,0.35)',
+        badgeColor: T.blue2,
       }
     : LIST_POSITION_CONFIG[position];
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<SortKey>('price');
+  const [sort, setSort] = useState<SortKey>(hidePrice ? 'rating' : 'price');
 
   const filtered = useMemo(() => {
     let list = [...players];
@@ -145,87 +132,95 @@ export const PlayerListScreen = memo(function PlayerListScreen({
           return b.rating - a.rating;
         case 'price':
         default:
-          return b.price - a.price;
+          return hidePrice ? b.rating - a.rating : b.price - a.price;
       }
     });
     return list;
-  }, [players, search, sort]);
+  }, [hidePrice, players, search, sort]);
 
-  const translateX = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [400, 0],
-  });
-
-  if (!visible) return null;
-
-  const sorts: { key: SortKey; label: string }[] = [
-    { key: 'price', label: 'Prix ↓' },
-    { key: 'pts', label: 'Points ↓' },
-    { key: 'goals', label: 'Buts ↓' },
-    { key: 'rating', label: 'Note ↓' },
-  ];
+  const sorts: { key: SortKey; label: string }[] = hidePrice
+    ? [
+        { key: 'rating', label: 'Note ↓' },
+        { key: 'pts', label: 'Points ↓' },
+        { key: 'goals', label: 'Buts ↓' },
+      ]
+    : [
+        { key: 'price', label: 'Prix ↓' },
+        { key: 'pts', label: 'Points ↓' },
+        { key: 'goals', label: 'Buts ↓' },
+        { key: 'rating', label: 'Note ↓' },
+      ];
 
   return (
-    <Animated.View
-      style={[styles.view, { paddingTop: insets.top, transform: [{ translateX }] }]}
-      pointerEvents="auto"
-    >
-      <View style={styles.header}>
-        <View style={styles.hRow}>
-          <Pressable style={styles.back} onPress={onClose}>
-            <Text style={styles.backTxt}>←</Text>
-          </Pressable>
-          <Text style={styles.title}>{cfg.title}</Text>
-          <View style={[styles.badge, { backgroundColor: cfg.badgeBg, borderColor: cfg.badgeBorder }]}>
-            <Text style={[styles.badgeTxt, { color: cfg.badgeColor }]}>{cfg.badge}</Text>
-          </View>
-        </View>
-        <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>⌕</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Rechercher un joueur..."
-            placeholderTextColor={T.muted}
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
-          {sorts.map((s) => (
-            <Pressable
-              key={s.key}
-              style={[styles.sortBtn, sort === s.key && styles.sortBtnOn]}
-              onPress={() => setSort(s.key)}
-            >
-              <Text style={[styles.sortTxt, sort === s.key && styles.sortTxtOn]}>{s.label}</Text>
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+      <View style={[styles.view, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <View style={styles.hRow}>
+            <Pressable style={styles.back} onPress={onClose}>
+              <Text style={styles.backTxt}>←</Text>
             </Pressable>
+            <Text style={styles.title}>{cfg.title}</Text>
+            <View style={[styles.badge, { backgroundColor: cfg.badgeBg, borderColor: cfg.badgeBorder }]}>
+              <Text style={[styles.badgeTxt, { color: cfg.badgeColor }]}>{cfg.badge}</Text>
+            </View>
+          </View>
+          <View style={styles.searchBar}>
+            <Text style={styles.searchIcon}>⌕</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Rechercher un joueur..."
+              placeholderTextColor={T.muted}
+              value={search}
+              onChangeText={setSearch}
+            />
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.sortRow}
+          >
+            {sorts.map((s) => (
+              <Pressable
+                key={s.key}
+                style={[styles.sortBtn, sort === s.key && styles.sortBtnOn]}
+                onPress={() => setSort(s.key)}
+              >
+                <Text style={[styles.sortTxt, sort === s.key && styles.sortTxtOn]}>{s.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+          {loading && filtered.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <ActivityIndicator color={T.blue} />
+              <Text style={styles.loading}>Chargement des joueurs…</Text>
+            </View>
+          ) : null}
+          {!loading && filtered.length === 0 ? (
+            <Text style={styles.loading}>Aucun joueur disponible pour ce poste.</Text>
+          ) : null}
+          {filtered.map((p) => (
+            <PlayerListRow
+              key={p.id}
+              player={p}
+              position={benchMode ? p.position : position}
+              disabled={usedIds.has(p.id)}
+              hidePrice={hidePrice}
+              onSelect={() => onSelect(p)}
+            />
           ))}
         </ScrollView>
       </View>
-
-      <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-        {loading && filtered.length === 0 ? (
-          <Text style={styles.loading}>Chargement des joueurs…</Text>
-        ) : null}
-        {filtered.map((p) => (
-          <PlayerListRow
-            key={p.id}
-            player={p}
-            position={position}
-            disabled={usedIds.has(p.id)}
-            onSelect={() => onSelect(p)}
-          />
-        ))}
-      </ScrollView>
-    </Animated.View>
+    </Modal>
   );
 });
 
 const styles = StyleSheet.create({
   view: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     backgroundColor: T.bg,
-    zIndex: 20,
   },
   header: {
     borderBottomWidth: 1,
@@ -288,12 +283,13 @@ const styles = StyleSheet.create({
     borderColor: T.border,
   },
   sortBtnOn: {
-    backgroundColor: 'rgba(41,121,255,0.2)',
+    backgroundColor: 'rgba(218,41,28,0.2)',
     borderColor: T.blue,
   },
   sortTxt: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: T.muted2 },
   sortTxtOn: { color: T.text },
   list: { flex: 1 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 32, gap: 12 },
   loading: {
     textAlign: 'center',
     color: T.muted2,
@@ -314,7 +310,12 @@ const styles = StyleSheet.create({
   meta: { fontFamily: 'Inter_500Medium', fontSize: 11, color: T.muted2 },
   stats: { flexDirection: 'row', gap: 12 },
   statCol: { alignItems: 'center' },
-  statVal: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: T.text2, fontVariant: ['tabular-nums'] },
+  statVal: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: T.text2,
+    fontVariant: ['tabular-nums'],
+  },
   statLbl: { fontSize: 8, color: T.muted2, textTransform: 'uppercase' },
   priceCol: { alignItems: 'flex-end', minWidth: 36 },
   price: {
@@ -323,19 +324,16 @@ const styles = StyleSheet.create({
     color: T.gold,
     textAlign: 'right',
   },
-  priceUp: { color: T.green },
-  priceDown: { color: '#e5382b' },
-  trend: { fontFamily: 'Inter_800ExtraBold', fontSize: 11, marginTop: 1 },
   addBtn: {
     width: 30,
     height: 30,
     borderRadius: 10,
-    backgroundColor: 'rgba(41,121,255,0.15)',
+    backgroundColor: 'rgba(218,41,28,0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(41,121,255,0.3)',
+    borderColor: 'rgba(218,41,28,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   addBtnOff: { opacity: 0.45 },
-  addIcon: { fontSize: 18, color: T.blue2, fontFamily: 'Inter_700Bold' },
+  addIcon: { fontSize: 18, color: T.gold, fontFamily: 'Inter_700Bold' },
 });

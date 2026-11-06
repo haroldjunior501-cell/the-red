@@ -1,38 +1,19 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform, Text, View } from 'react-native';
+import { Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, UNITED_RED } from '../constants/colors';
 import HomeStack from './HomeStack';
-import HubScreen from '../screens/HubScreen';
+import VideosScreen from '../screens/VideosScreen';
 import LiveStack from './LiveStack';
 import FantasyScreen from '../screens/FantasyScreen';
-
-function ProgrammePlaceholder() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: COLORS.bgDeep,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 32,
-      }}
-    >
-      <MaterialCommunityIcons name="calendar-month" size={40} color={UNITED_RED} />
-      <Text style={{ color: '#fff', fontWeight: '900', marginTop: 12, fontSize: 18 }}>Programme</Text>
-      <Text style={{ color: '#94a3b8', marginTop: 6, textAlign: 'center' }}>
-        Calendrier Manchester United — Premier League, Cups & Europe.
-      </Text>
-    </View>
-  );
-}
+import ProgrammeScreen from '../screens/ProgrammeScreen';
 
 export type TabsParamList = {
   Accueil: undefined;
   Live: undefined;
-  Hub: undefined;
+  Videos: undefined;
   Fantasy: undefined;
   Programme: undefined;
 };
@@ -86,13 +67,17 @@ export default function AppTabs() {
         }}
       />
       <Tab.Screen
-        name="Hub"
-        component={HubScreen}
+        name="Videos"
+        component={VideosScreen}
         options={{
-          tabBarLabel: 'Hub',
+          tabBarLabel: 'Vidéos',
           freezeOnBlur: true,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="earth" color={color} size={size ?? 22} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <MaterialCommunityIcons
+              name={focused ? 'play-circle' : 'play-circle-outline'}
+              color={color}
+              size={(size ?? 22) + 2}
+            />
           ),
         }}
       />
@@ -100,15 +85,15 @@ export default function AppTabs() {
         name="Fantasy"
         component={FantasyScreen}
         options={{
-          tabBarLabel: 'Fantasy',
+          tabBarLabel: 'Mon XI',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="flash" color={color} size={size ?? 22} />
+            <MaterialCommunityIcons name="soccer-field" color={color} size={size ?? 22} />
           ),
         }}
       />
       <Tab.Screen
         name="Programme"
-        component={ProgrammePlaceholder}
+        component={ProgrammeScreen}
         options={{
           tabBarLabel: 'Programme',
           tabBarIcon: ({ color, size }) => (

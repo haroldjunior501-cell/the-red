@@ -4,11 +4,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLiveAllGroups } from '../../hooks/useLiveAllGroups';
 import { useMatchDetails } from '../../hooks/useMatchDetails';
+import { useTheRedHome } from '../../hooks/useTheRedHome';
 import { mergePremiumEvents } from '../../utils/liveMatchEventMap';
 import type { LiveStackParamList } from '../../navigation/LiveStack';
-import { AllGroupsPanel } from './components/AllGroupsPanel';
+import { PremierLeagueTableCard } from '../home/components/PremierLeagueTableCard';
 import { LiveH2HPanel } from './components/matchDetail/LiveH2HPanel';
 import { LiveLineupsPanel } from './components/matchDetail/LiveLineupsPanel';
 import { LiveMatchBanner } from './components/matchDetail/LiveMatchBanner';
@@ -17,18 +17,30 @@ import { LiveStatsPanel } from './components/matchDetail/LiveStatsPanel';
 import { MatchDetailTabs, type MatchDetailTabKey } from './components/matchDetail/MatchDetailTabs';
 import { LiveEventsTimeline } from './components/matchEvents/LiveEventsTimeline';
 import { DS } from './LiveScreen.styles';
+import { UNITED_RED } from '../../constants/colors';
 
 export default function MatchDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<LiveStackParamList, 'MatchDetail'>>();
-  const match = route.params.match;
-  const { bundle, premiumEvents, parsedStats, h2hDetail, h2hLoading, loading, error } =
-    useMatchDetails(match);
-  const { groups, loading: groupsLoading, error: groupsError } = useLiveAllGroups(true);
+  const baseMatch = route.params.match;
+  const { bundle, premiumEvents, parsedStats, h2hDetail, h2hLoading, liveScore, loading, error } =
+    useMatchDetails(baseMatch);
+  const { leagueTable, loadingStatic } = useTheRedHome();
   const insets = useSafeAreaInsets();
 
   const [tab, setTab] = useState<MatchDetailTabKey>('match');
   const [statsOpen, setStatsOpen] = useState(false);
+
+  const match = useMemo(() => {
+    if (!liveScore) return baseMatch;
+    return {
+      ...baseMatch,
+      home_score: liveScore.home,
+      away_score: liveScore.away,
+      minute: liveScore.minute || baseMatch.minute,
+      status: liveScore.status || baseMatch.status,
+    };
+  }, [baseMatch, liveScore]);
 
   const events = useMemo(
     () => mergePremiumEvents(premiumEvents, match.events),
@@ -41,10 +53,14 @@ export default function MatchDetailScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <MaterialCommunityIcons name="chevron-left" size={28} color={DS.green} />
+          <MaterialCommunityIcons name="chevron-left" size={28} color={UNITED_RED} />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {match.status === 'upcoming' ? 'Présentation du match' : 'Match live'}
+          {match.status === 'upcoming'
+            ? 'Présentation'
+            : match.status === 'finished'
+              ? 'Match terminé'
+              : 'Match live'}
         </Text>
         <View style={{ width: 28 }} />
       </View>
@@ -98,10 +114,8 @@ export default function MatchDetailScreen() {
           ) : null}
 
           {tab === 'standings' ? (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.standingsWrap}>
-                <AllGroupsPanel groups={groups} loading={groupsLoading} error={groupsError} />
-              </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.standingsWrap}>
+              <PremierLeagueTableCard table={leagueTable} loading={loadingStatic} />
             </ScrollView>
           ) : null}
 

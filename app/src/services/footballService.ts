@@ -221,7 +221,7 @@ export type TeamStats = {
 
 export type FormChar = 'G' | 'P' | 'N';
 
-export type Injury = { name: string; reason?: string };
+export type Injury = { name: string; reason?: string; photo?: string };
 
 export type TopScorer = {
   name: string;

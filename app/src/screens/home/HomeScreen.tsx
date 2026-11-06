@@ -2,19 +2,16 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 import * as Haptics from 'expo-haptics';
 import {
   ActivityIndicator,
-  Animated,
-  Easing,
   Image,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
   useAnimatedStyle,
   useSharedValue,
@@ -28,30 +25,33 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { TabsParamList } from '../../navigation/AppTabs';
 import type { HomeStackParamList } from '../../navigation/HomeStack';
-import { useNationPower } from '../../hooks/useNationPower';
-import { useWorldRanking } from '../../hooks/useWorldRanking';
-import { NationPowerBar } from './components/NationPowerBar';
+import { useQuery } from '@tanstack/react-query';
+import { ClubNewsCard } from './components/ClubNewsCard';
 import { VenezJouer } from './components/VenezJouer';
-import { WorldRanking } from './components/WorldRanking';
+import { PremierLeagueTableCard } from './components/PremierLeagueTableCard';
+import {
+  categoryLabel,
+  fetchUnitedClubNews,
+  relativeTimeFr,
+} from '../../services/oneFootballNews';
+import { useClubNewsWatch } from '../../hooks/useClubNewsWatch';
+import { useClubNewsNotificationOpen } from '../../hooks/useClubNewsNotificationOpen';
 import { COUNTRIES } from '../../constants/countries';
-import { findWc2026MatchById } from '../../data/wc2026Matches';
-import { useWorldCup } from '../../hooks/useWorldCup';
-import { useTopAssisters } from '../../hooks/useTopAssisters';
-import { useTeamStatsRanking } from '../../hooks/useTeamStatsRanking';
+import { fotmobTeamLogoUrl } from '../../constants/fotmob';
+import { FOTMOB_MU_FULL_NAME, FOTMOB_MU_TEAM_ID, FOTMOB_MU_TEAM_NAME } from '../../constants/fotmobTheRed';
+import { useTheRedHome } from '../../hooks/useTheRedHome';
+import { useUnitedPlayerStatRanking } from '../../hooks/useUnitedPlayerStatRanking';
 import {
   PLAYER_TAB_TO_KIND,
-  TEAM_TAB_TO_KIND,
   playerStatColumnLabel,
   type PlayerStatKind,
-  type TeamStatKind,
 } from '../../constants/homeStats';
-import { usePreMatchInsights, type PreMatchModalKind } from '../../hooks/usePreMatchInsights';
+import type { PreMatchModalKind } from '../../hooks/usePreMatchInsights';
 import { PreMatchModals } from './components/PreMatchModals';
 import { useFantasyEconomy } from '../../hooks/useFantasyEconomy';
 import { useUserStore } from '../../store/useUserStore';
 import { UserAvatar } from '../../components/arena/UserAvatar';
 import { COLORS } from '../../constants/colors';
-import { LIGHT } from '../../constants/lighting';
 import { ScreenAmbience } from '../../components/ui/ScreenAmbience';
 import type { FormChar, WorldCupMatch } from '../../services/footballService';
 import { StoriesRow } from './components/StoriesRow';
@@ -92,38 +92,64 @@ const DS = {
 } as const;
 
 const STORY_SIZE = 80;
-const WC_JUNE_11_UTC = Date.UTC(2026, 5, 11, 0, 0, 0);
 
 function pad2(n: number) {
   return String(Math.max(0, Math.floor(n))).padStart(2, '0');
 }
 
-function formatCountdownUtc(targetUtcMs: number, nowMs: number) {
+function countdownParts(targetUtcMs: number, nowMs: number) {
   const ms = Math.max(0, targetUtcMs - nowMs);
   const totalSec = Math.floor(ms / 1000);
-  const days = Math.floor(totalSec / 86400);
-  const hours = Math.floor((totalSec % 86400) / 3600);
-  const mins = Math.floor((totalSec % 3600) / 60);
-  const secs = totalSec % 60;
-  return `${pad2(days)}j · ${pad2(hours)}h · ${pad2(mins)}m · ${pad2(secs)}s`;
+  return {
+    days: pad2(Math.floor(totalSec / 86400)),
+    hours: pad2(Math.floor((totalSec % 86400) / 3600)),
+    mins: pad2(Math.floor((totalSec % 3600) / 60)),
+    secs: pad2(totalSec % 60),
+  };
 }
 
 function normalizeName(s: string) {
   return s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+function isManchesterUnitedName(name: string) {
+  const n = normalizeName(name);
+  return (
+    n.includes('manchester united') ||
+    n === 'man united' ||
+    n === 'man utd' ||
+    n.includes('man united')
+  );
+}
+
+function pickSides(match: WorldCupMatch) {
+  const mu = String(FOTMOB_MU_TEAM_ID);
+  if (match.home.id === mu || isManchesterUnitedName(match.home.name)) {
+    return { self: match.home, opp: match.away };
+  }
+  if (match.away.id === mu || isManchesterUnitedName(match.away.name)) {
+    return { self: match.away, opp: match.home };
+  }
+  return { self: match.home, opp: match.away };
+}
+
+function shortClubCode(name: string): string {
+  const n = normalizeName(name);
+  if (n.includes('manchester united') || n.includes('man united')) return 'MU';
+  if (n.includes('manchester city') || n.includes('man city')) return 'MCI';
+  if (n.includes('aston villa')) return 'AVL';
+  if (n.includes('liverpool')) return 'LIV';
+  if (n.includes('arsenal')) return 'ARS';
+  if (n.includes('chelsea')) return 'CHE';
+  if (n.includes('tottenham') || n.includes('spurs')) return 'TOT';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1].slice(0, 2)).toUpperCase();
+}
+
 function findCountry(teamName: string) {
   const n = normalizeName(teamName);
   return COUNTRIES.find((c) => normalizeName(c.name) === n);
-}
-
-function pickSides(match: WorldCupMatch, userCountryName: string) {
-  const u = normalizeName(userCountryName);
-  const h = normalizeName(match.home.name);
-  const a = normalizeName(match.away.name);
-  if (u && (h === u || h.includes(u) || u.includes(h))) return { self: match.home, opp: match.away };
-  if (u && (a === u || a.includes(u) || u.includes(a))) return { self: match.away, opp: match.home };
-  return { self: match.home, opp: match.away };
 }
 
 function getCountryColor(code: string): string {
@@ -149,22 +175,6 @@ function getCountryColor(code: string): string {
     CA: '#D80621',
   };
   return map[c] ?? '#1A3520';
-}
-
-function getHeroAmbient(code: string): readonly [string, string, string] {
-  const a = getCountryColor(code);
-  return [`${a}33`, `${a}18`, 'rgba(8,12,9,0.92)'] as const;
-}
-
-function chapterLabelFromRound(round: string): { n: number; label: string } {
-  const r = normalizeName(round);
-  if (!r) return { n: 1, label: 'PHASE EN COURS' };
-  if (r.includes('group')) return { n: 1, label: 'PHASE DE GROUPES' };
-  if (r.includes('16') || r.includes('round of 16') || r.includes('8th')) return { n: 2, label: 'HUITIÈMES' };
-  if (r.includes('quarter')) return { n: 3, label: 'QUARTS' };
-  if (r.includes('semi')) return { n: 4, label: 'DEMI-FINALES' };
-  if (r.includes('final')) return { n: 5, label: 'FINALE' };
-  return { n: 1, label: round.replace(/\s+/g, ' ').toUpperCase() };
 }
 
 const TabPill = memo(function TabPill({
@@ -196,10 +206,13 @@ type HomeNav = CompositeNavigationProp<
 
 export default function HomeScreen() {
   const navigation = useNavigation<HomeNav>();
+  const insets = useSafeAreaInsets();
   const name = useUserStore((st) => st.name);
   const countryCode = useUserStore((st) => st.countryCode);
   const userId = useUserStore((st) => st.userId);
   const { fantasyPoints, loading: fpLoading, refresh: refreshFantasyPoints } = useFantasyEconomy(userId);
+  useClubNewsWatch(true);
+  useClubNewsNotificationOpen();
 
   useFocusEffect(
     useCallback(() => {
@@ -207,34 +220,30 @@ export default function HomeScreen() {
     }, [refreshFantasyPoints])
   );
 
-  const country = useMemo(() => COUNTRIES.find((c) => c.code === countryCode), [countryCode]);
-  const flag = country?.flag ?? '';
-  const countryName = country?.name ?? 'Ton pays';
-
   const {
     nextMatch,
     liveMatch,
     liveDetail,
     topScorers,
-    teamStats,
     formSelf,
     formOpp,
+    formSelfDetail,
+    formOppDetail,
     injuries,
+    injuriesOpp,
     h2h,
-    oppCode,
+    h2hDetail,
+    h2hLoading,
+    formLoading,
     loadingStatic,
     loadingLive,
     emptyData,
-  } = useWorldCup(countryCode?.trim() || 'FR');
+    muStanding,
+    leagueTable,
+    matchStadium,
+  } = useTheRedHome();
 
   const [prepModal, setPrepModal] = useState<PreMatchModalKind>(null);
-  const {
-    h2hDetail,
-    h2hLoading,
-    formSelf: formSelfDetail,
-    formOpp: formOppDetail,
-    formLoading,
-  } = usePreMatchInsights(prepModal, countryCode || '', oppCode);
 
   const openPrepModal = useCallback((kind: PreMatchModalKind) => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -242,18 +251,35 @@ export default function HomeScreen() {
   }, []);
 
   const matchUi = nextMatch ?? liveMatch;
-  const sides = useMemo(() => (matchUi ? pickSides(matchUi, countryName) : null), [matchUi, countryName]);
+  const sides = useMemo(() => (matchUi ? pickSides(matchUi) : null), [matchUi]);
+
+  const muLogo = fotmobTeamLogoUrl(FOTMOB_MU_TEAM_ID);
 
   const self = useMemo(() => {
-    if (!sides) return { flag, code: countryCode || '—', name: countryName, logo: undefined as string | undefined };
-    const m = findCountry(sides.self.name);
-    return { flag: m?.flag ?? flag, code: m?.code ?? (countryCode || '—'), name: m?.name ?? countryName, logo: sides.self.logo };
-  }, [countryCode, countryName, flag, sides]);
+    if (!sides) {
+      return {
+        flag: '🔴',
+        code: 'MU',
+        name: FOTMOB_MU_TEAM_NAME,
+        logo: muLogo,
+      };
+    }
+    return {
+      flag: '🔴',
+      code: 'MU',
+      name: sides.self.name || FOTMOB_MU_FULL_NAME,
+      logo: sides.self.logo || muLogo,
+    };
+  }, [muLogo, sides]);
 
   const opp = useMemo(() => {
     if (!sides) return { flag: '', code: '—', name: '—', logo: undefined as string | undefined };
-    const m = findCountry(sides.opp.name);
-    return { flag: m?.flag ?? '', code: m?.code ?? '—', name: m?.name ?? sides.opp.name, logo: sides.opp.logo };
+    return {
+      flag: '',
+      code: shortClubCode(sides.opp.name),
+      name: sides.opp.name,
+      logo: sides.opp.logo || fotmobTeamLogoUrl(sides.opp.id),
+    };
   }, [sides]);
 
   const [tickMs, setTickMs] = useState(() => Date.now());
@@ -262,53 +288,56 @@ export default function HomeScreen() {
     return () => clearInterval(id);
   }, []);
 
-  const countdownMs = useMemo(() => (nextMatch ? new Date(nextMatch.date).getTime() : WC_JUNE_11_UTC), [nextMatch]);
-  const countdownStr = useMemo(
-    () => (liveMatch && !nextMatch ? 'EN DIRECT' : formatCountdownUtc(countdownMs, tickMs)),
-    [countdownMs, liveMatch, nextMatch, tickMs]
+  const countdownMs = useMemo(
+    () => (nextMatch ? new Date(nextMatch.date).getTime() : tickMs),
+    [nextMatch, tickMs]
   );
-
-  const chapterLine = useMemo(() => {
-    if (tickMs < WC_JUNE_11_UTC) return "CHAPITRE 0 · AVANT LE COUP D'ENVOI";
-    const round = nextMatch?.phase ?? liveMatch?.phase ?? '';
-    const { n, label } = chapterLabelFromRound(round);
-    return `CHAPITRE ${n} · ${label}`;
-  }, [liveMatch?.phase, nextMatch?.phase, tickMs]);
+  const isLiveNow = !!(liveMatch && !nextMatch);
+  const cd = useMemo(() => countdownParts(countdownMs, tickMs), [countdownMs, tickMs]);
 
   const phaseStr = useMemo(() => {
     const r = (nextMatch?.phase ?? liveMatch?.phase ?? '').trim();
-    return r ? r.replace(/\s+/g, ' ').toUpperCase() : 'PHASE';
+    return r ? r.replace(/\s+/g, ' ').toUpperCase() : 'PREMIER LEAGUE';
   }, [liveMatch?.phase, nextMatch?.phase]);
 
   const { stories, loading: storiesLoading } = useStories(20);
   const { isSeen: isStorySeen, markSeen: markStorySeen } = useSeenStories();
-  const { videos: momentsVideos, loading: momentsVideosLoading } = useVideos(20, 'moments_forts');
-  const { videos: immanquableVideos, loading: immanquableVideosLoading } = useVideos(20, 'immanquable');
+  const { videos: momentsVideos, loading: momentsVideosLoading } = useVideos(40, 'moments_forts');
+  const { videos: immanquableVideos, loading: immanquableVideosLoading } = useVideos(40, 'immanquable');
 
   const [storyOpen, setStoryOpen] = useState(false);
   const [storyStart, setStoryStart] = useState(0);
 
   const [tabP, setTabP] = useState('Buts');
-  const [tabT, setTabT] = useState('Buts');
 
-  const activeFixtureId = nextMatch?.fixtureId ?? liveMatch?.fixtureId;
-  const accent = getCountryColor(countryCode || 'FR');
-  const ambient = getHeroAmbient(countryCode || 'FR');
-
-  const { power, worldRank, flag: nationFlag, nationLabel } = useNationPower();
-  const { ranking: worldRanking, loading: rankingLoading } = useWorldRanking(8);
+  const clubNewsPreview = useQuery({
+    queryKey: ['thered', 'clubNews', 'united'] as const,
+    queryFn: () => fetchUnitedClubNews(),
+    staleTime: 60_000,
+  });
+  const topNews =
+    clubNewsPreview.data?.find((n) => n.language === 'fr' && !!n.image_url) ??
+    clubNewsPreview.data?.find((n) => !!n.image_url) ??
+    clubNewsPreview.data?.[0] ??
+    null;
 
   const goPlayHub = useCallback(() => navigation.navigate('PlayHub'), [navigation]);
-  const goTableau = useCallback(() => navigation.navigate('Tableau'), [navigation]);
-  const goPronos = useCallback(() => navigation.navigate('Pronos'), [navigation]);
-  const goArena = useCallback(() => {
-    navigation.navigate('Arena');
+  const goPremierLeagueTable = useCallback(
+    () => navigation.navigate('PremierLeagueTable'),
+    [navigation]
+  );
+  const goClubNews = useCallback(() => {
+    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('ClubNews');
   }, [navigation]);
-  const goFantasy = useCallback(() => {
+  const goPronos = useCallback(() => navigation.navigate('Pronos'), [navigation]);
+  const goPickXi = useCallback(() => {
     const parent = navigation.getParent();
     if (parent) parent.navigate('Fantasy');
-    else navigation.navigate('Fantasy' as never);
+    else navigation.navigate('PickYourXi');
   }, [navigation]);
+  const goUnitedQuiz = useCallback(() => navigation.navigate('UnitedQuiz'), [navigation]);
+  const goUnitedRating = useCallback(() => navigation.navigate('UnitedRating'), [navigation]);
   const goTopScorers = useCallback(
     () => navigation.navigate('PlayerStatsRanking', { stat: 'goals' }),
     [navigation]
@@ -345,38 +374,24 @@ export default function HomeScreen() {
     [navigation]
   );
 
-  const goTeamStatsRanking = useCallback(
-    (kind: TeamStatKind) => navigation.navigate('TeamStatsRanking', { stat: kind }),
-    [navigation]
-  );
-
   const playerStatKind = PLAYER_TAB_TO_KIND[tabP] ?? 'goals';
-  const teamStatKind = TEAM_TAB_TO_KIND[tabT] ?? 'goals';
-  const { rows: topAssisters } = useTopAssisters(5);
-  const { rows: teamPreviewRows } = useTeamStatsRanking(teamStatKind, 5);
+  const { rows: unitedStatRows } = useUnitedPlayerStatRanking(playerStatKind, 10);
 
-  const playerPreviewRows = useMemo(() => {
-    if (playerStatKind === 'assists') {
-      return topAssisters.slice(0, 3).map((r) => ({
+  const playerPreviewRows = useMemo(
+    () =>
+      unitedStatRows.slice(0, 3).map((r) => ({
         name: r.name,
         team: r.team,
         photo: r.photo,
-        value: r.assists,
-      }));
-    }
-    return topScorers.slice(0, 3).map((r) => ({
-      name: r.name,
-      team: r.team,
-      photo: r.photo,
-      value: playerStatKind === 'goals' ? r.goals : 0,
-    }));
-  }, [playerStatKind, topAssisters, topScorers]);
+        value: r.value,
+      })),
+    [unitedStatRows]
+  );
   const goMatchOverview = useCallback(() => {
     if (!matchUi) return;
-    const wcLocal = findWc2026MatchById(matchUi.fixtureId);
     navigation.navigate('MatchDetails', {
       fixtureId: matchUi.fixtureId,
-      selfCode: countryCode || self.code,
+      selfCode: 'MU',
       oppCode: opp.code !== '—' ? opp.code : undefined,
       homeName: matchUi.home.name,
       awayName: matchUi.away.name,
@@ -386,9 +401,9 @@ export default function HomeScreen() {
       awayLogo: matchUi.away.logo,
       date: matchUi.date,
       phase: matchUi.phase,
-      venue: wcLocal ? `${wcLocal.group} · ${wcLocal.date} · ${wcLocal.time}` : undefined,
+      venue: matchUi.phase || 'Premier League',
     });
-  }, [countryCode, matchUi, navigation, opp.code, self.code]);
+  }, [matchUi, navigation, opp.code]);
   const goProfile = useCallback(() => navigation.navigate('Profile'), [navigation]);
 
   const avatarPressScale = useSharedValue(1);
@@ -411,86 +426,93 @@ export default function HomeScreen() {
 
   const top1 = topScorers[0];
 
+  const muStories = useMemo(
+    () =>
+      stories.filter((st) => {
+        const blob = `${st.label ?? ''} ${st.country ?? ''} ${st.chapter ?? ''}`.toLowerCase();
+        if (!blob.trim()) return true;
+        const wc =
+          blob.includes('world cup') ||
+          blob.includes('coupe du monde') ||
+          blob.includes('fifa') ||
+          blob.includes('neymar') ||
+          blob.includes('qatar') ||
+          blob.includes('cdm');
+        return !wc;
+      }),
+    [stories]
+  );
+
   return (
-    <SafeAreaView style={s.safe}>
+    <View style={s.safe}>
       <ScreenAmbience centerGlow>
-      <ScrollView contentContainerStyle={{ paddingBottom: 36 }} showsVerticalScrollIndicator={false}>
+      {/* Profil collé sous la status bar — hors ScrollView */}
+      <View style={[s.topBar, { paddingTop: Math.max(insets.top, 8) }]}>
+        <View style={s.hdrRow}>
+          <AnimatedPressable
+            style={[s.hdrL, avatarPressStyle]}
+            onPress={goProfile}
+            onPressIn={() => {
+              avatarPressScale.value = withTiming(0.98, { duration: 120 });
+            }}
+            onPressOut={() => {
+              avatarPressScale.value = withTiming(1, { duration: 120 });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Mon profil"
+          >
+            <View style={[s.avRing, { shadowColor: COLORS.primaryLight }]}>
+              <UserAvatar userId={userId} displayName={name} countryCode={countryCode} size={36} />
+            </View>
+            <View style={s.hdrNameWrap}>
+              <Text style={s.hdrName} numberOfLines={1}>
+                {(name || 'HAROLD').toUpperCase()}
+              </Text>
+              <Text style={s.hdrSub} numberOfLines={1}>
+                Manchester United
+              </Text>
+            </View>
+          </AnimatedPressable>
+          <View style={s.hdrR}>
+            <TouchableOpacity
+              style={s.fpPill}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('Fantasy')}
+              accessibilityLabel="Fantasy Points"
+            >
+              <MaterialCommunityIcons name="diamond-stone" size={17} color={COLORS.primaryLight} />
+              <Text style={s.fpAmt}>
+                {fpLoading ? '…' : fantasyPoints.toLocaleString('fr-FR')}
+              </Text>
+              <Text style={s.fpSuffix}>FP</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={{ paddingBottom: 28 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={[s.wrap, { paddingHorizontal: DS.ph }]}>
           {emptyData && !loadingStatic ? (
             <View style={s.emptyBanner}>
               <Text style={s.emptyBannerT}>
-                Calendrier Manchester United chargé. Les scores live s’affichent dès que le flux est disponible.
+                Connexion FotMob en cours. Le prochain match United s’affichera dès que le flux répond.
               </Text>
             </View>
           ) : null}
 
-          {/* 1 Header */}
-          <View style={s.hdrRow}>
-            <AnimatedPressable
-              style={[s.hdrL, avatarPressStyle]}
-              onPress={goProfile}
-              onPressIn={() => {
-                avatarPressScale.value = withTiming(0.98, { duration: 120 });
-              }}
-              onPressOut={() => {
-                avatarPressScale.value = withTiming(1, { duration: 120 });
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Mon profil"
-            >
-              <View style={[s.avRing, { shadowColor: COLORS.primaryLight }]}>
-                <UserAvatar userId={userId} displayName={name} countryCode={countryCode} size={40} />
-              </View>
-              <View style={s.hdrNameWrap}>
-                <Text style={s.hdrName} numberOfLines={1}>
-                  {(name || 'HAROLD').toUpperCase()}
-                </Text>
-              </View>
-            </AnimatedPressable>
-            <View style={s.hdrR}>
-              <TouchableOpacity
-                style={s.fpPill}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('Fantasy')}
-                accessibilityLabel="Fantasy Points"
-              >
-                <MaterialCommunityIcons name="diamond-stone" size={17} color={COLORS.primaryLight} />
-                <Text style={s.fpAmt}>
-                  {fpLoading ? '…' : fantasyPoints.toLocaleString('fr-FR')}
-                </Text>
-                <Text style={s.fpSuffix}>FP</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* 2 Hero vidéo */}
-          <View style={[s.hero, { marginBottom: 16 }]}>
-            <View style={StyleSheet.absoluteFill} pointerEvents="none">
-              <LinearGradient
-                colors={[LIGHT.skyTop, LIGHT.skyMid, 'transparent']}
-                locations={[0, 0.4, 1]}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={[s.radBlob, { backgroundColor: COLORS.primaryLight, opacity: 0.28, width: 320, height: 320, top: -24 }]} />
-              <View style={[s.radBlob, { backgroundColor: accent, opacity: 0.18, width: 240, height: 240, top: 24 }]} />
-              <LinearGradient colors={ambient} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
-            </View>
-            <View style={StyleSheet.absoluteFill} pointerEvents="none">
-              <LinearGradient
-                colors={[LIGHT.skyTop, LIGHT.skyMid, 'transparent']}
-                locations={[0, 0.4, 1]}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={[s.radBlob, { backgroundColor: COLORS.primaryLight, opacity: 0.16, width: 320, height: 320, top: -24 }]} />
-              <View style={[s.radBlob, { backgroundColor: accent, opacity: 0.1, width: 240, height: 240, top: 24 }]} />
-              <LinearGradient colors={ambient} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
-            </View>
+          {/* Hero */}
+          <View style={[s.hero, { marginBottom: 12 }]}>
             <View style={StyleSheet.absoluteFill} collapsable={false}>
               <HomeLoopVideo source={HERO_BG_VIDEO} shouldPlay isLooping isMuted style={s.heroVid} />
             </View>
             <LinearGradient
-              colors={[LIGHT.videoLiftTop, 'transparent', LIGHT.videoTintBottom]}
-              locations={[0, 0.45, 1]}
+              colors={['rgba(12,5,7,0.35)', 'transparent', 'rgba(12,5,7,0.88)']}
+              locations={[0, 0.4, 1]}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
@@ -499,37 +521,31 @@ export default function HomeScreen() {
               <Text style={s.heroT2}>UNITED</Text>
               <View style={s.heroSubRow}>
                 <View style={s.heroDot} />
-                <Text style={s.heroSub}>Live · Saison 1 · Aventure</Text>
+                <Text style={s.heroSub}>Premier League · Fans United</Text>
               </View>
             </View>
           </View>
 
-          {/* 3 Badge Chapitre */}
-          <View style={[s.chap, { marginBottom: 16 }]}>
-            <MaterialCommunityIcons name="book-open-page-variant" size={18} color={DS.gold} />
-            <Text style={s.chapTxt} numberOfLines={2}>
-              {chapterLine}
-            </Text>
-          </View>
+          {/* 3 Stories (filtre CDM) */}
+          {muStories.length || storiesLoading ? (
+            <StoriesRow
+              stories={muStories}
+              loading={storiesLoading}
+              isSeen={isStorySeen}
+              onOpen={(i) => {
+                if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setStoryStart(i);
+                setStoryOpen(true);
+              }}
+            />
+          ) : null}
 
-          {/* 4 Bulles Stories */}
-          <StoriesRow
-            stories={stories}
-            loading={storiesLoading}
-            isSeen={isStorySeen}
-            onOpen={(i) => {
-              if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setStoryStart(i);
-              setStoryOpen(true);
-            }}
-          />
-
-          {/* 5 Prochain Match */}
+          {/* 4 Prochain Match MU */}
           <View style={{ marginBottom: 16 }}>
             <View style={s.sectionHead}>
               <Text style={s.sectionTitle}>PROCHAIN MATCH</Text>
               <TouchableOpacity onPress={goMatchOverview}>
-                <Text style={s.sectionAction}>Tout afficher</Text>
+                <Text style={s.sectionAction}>Détails</Text>
               </TouchableOpacity>
             </View>
             {loadingStatic ? (
@@ -540,47 +556,80 @@ export default function HomeScreen() {
               <View style={s.emptyMatch}>
                 <MaterialCommunityIcons name="soccer" size={44} color={COLORS.primaryLight} />
                 <Text style={s.emptyMatchT}>Match bientôt disponible</Text>
-                <Text style={s.emptyMatchS}>Les données arrivent dès que le calendrier est publié.</Text>
+                <Text style={s.emptyMatchS}>Calendrier Manchester United via FotMob.</Text>
               </View>
             ) : (
               <View style={s.nxInner}>
                 <View style={s.nxCtx}>
-                  <Text style={s.nxCtxT} numberOfLines={2}>
-                    {liveMatch && liveDetail && !nextMatch
-                      ? `En direct${liveDetail.minute != null ? ` · ${liveDetail.minute}'` : ''}`
-                      : `Prochain rendez-vous`}
+                  <Text style={s.nxCtxT} numberOfLines={1}>
+                    {isLiveNow && liveDetail?.minute != null
+                      ? `En direct · ${liveDetail.minute}'`
+                      : phaseStr}
                   </Text>
                 </View>
-                <View style={s.nxRow}>
-                  <View style={s.colL}>
-                    {self.logo ? <Image source={{ uri: self.logo }} style={s.logo48} resizeMode="contain" /> : null}
-                    <Text style={s.teamNm}>{self.name.toUpperCase()}</Text>
+
+                <View style={s.nxTeams}>
+                  <View style={s.nxTeam}>
+                    {self.logo ? <Image source={{ uri: self.logo }} style={s.logo44} resizeMode="contain" /> : null}
+                    <Text style={s.teamNm} numberOfLines={2}>
+                      {self.name.toUpperCase()}
+                    </Text>
                     <Text style={s.teamCd}>{self.code}</Text>
                   </View>
-                  <View style={s.colC}>
-                    <Text style={s.vsTxt}>VS</Text>
-                    {liveMatch && liveDetail ? (
-                      <Text style={s.scoreLive}>{`${liveDetail.score.home} — ${liveDetail.score.away}`}</Text>
-                    ) : null}
-                    <Text style={s.cdBig}>{countdownStr}</Text>
-                    <View style={s.liveLn}>
-                      <View style={s.liveDotS} />
-                      <Text style={s.liveTx}>Données live</Text>
-                      {loadingLive ? <ActivityIndicator color={DS.green} size="small" style={{ marginLeft: 6 }} /> : null}
+
+                  <View style={s.nxMid}>
+                    {isLiveNow && liveDetail ? (
+                      <Text style={s.scoreLive}>{`${liveDetail.score.home}–${liveDetail.score.away}`}</Text>
+                    ) : (
+                      <Text style={s.vsTxt}>VS</Text>
+                    )}
+                  </View>
+
+                  <View style={[s.nxTeam, s.nxTeamRight]}>
+                    {opp.logo ? <Image source={{ uri: opp.logo }} style={s.logo44} resizeMode="contain" /> : null}
+                    <Text style={[s.teamNm, s.teamNmRight]} numberOfLines={2}>
+                      {opp.name.toUpperCase()}
+                    </Text>
+                    <Text style={[s.teamCd, s.teamCdRight]}>{opp.code}</Text>
+                  </View>
+                </View>
+
+                <View style={s.cdBlock}>
+                  {isLiveNow ? (
+                    <Text style={s.cdLiveBadge}>EN DIRECT</Text>
+                  ) : (
+                    <View style={s.cdRow}>
+                      {(
+                        [
+                          [cd.days, 'J'],
+                          [cd.hours, 'H'],
+                          [cd.mins, 'M'],
+                          [cd.secs, 'S'],
+                        ] as const
+                      ).map(([val, unit], i) => (
+                        <View key={unit} style={s.cdItem}>
+                          {i > 0 ? <Text style={s.cdSep}>:</Text> : null}
+                          <View style={s.cdCell}>
+                            <Text style={s.cdNum}>{val}</Text>
+                            <Text style={s.cdUnit}>{unit}</Text>
+                          </View>
+                        </View>
+                      ))}
                     </View>
-                  </View>
-                  <View style={s.colR}>
-                    {opp.logo ? <Image source={{ uri: opp.logo }} style={s.logo48} resizeMode="contain" /> : null}
-                    <Text style={[s.teamNm, { textAlign: 'right' }]}>{opp.name.toUpperCase()}</Text>
-                    <Text style={[s.teamCd, { textAlign: 'right' }]}>{opp.code}</Text>
+                  )}
+                  <View style={s.liveLn}>
+                    <View style={s.liveDotS} />
+                    <Text style={s.liveTx}>
+                      {muStanding
+                        ? `${muStanding.rank}e PL · ${muStanding.pts} pts`
+                        : 'Données FotMob'}
+                      {matchStadium ? ` · ${matchStadium}` : ''}
+                    </Text>
+                    {loadingLive ? <ActivityIndicator color={DS.green} size="small" /> : null}
                   </View>
                 </View>
-                <View style={s.nxFoot}>
-                  <View style={s.phBadge}>
-                    <Text style={s.phBadgeT}>{phaseStr}</Text>
-                  </View>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingTop: 12, paddingRight: DS.ph }}>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingTop: 4, paddingHorizontal: 12, paddingBottom: 4 }}>
                   <TouchableOpacity
                     activeOpacity={0.85}
                     style={s.sub}
@@ -589,18 +638,20 @@ export default function HomeScreen() {
                     accessibilityLabel="Voir le face-à-face"
                   >
                     <Text style={s.subH}>FACE-À-FACE</Text>
-                    {h2h ? (
+                    {h2hLoading && !h2h ? (
+                      <ActivityIndicator color={DS.green} style={{ marginTop: 12 }} />
+                    ) : h2h ? (
                       <>
                         <Text style={s.subP}>
-                          {self.code} {self.name} — {h2h.winsTeam1}V · {h2h.draws}N · {h2h.winsTeam2}P
+                          {self.code} — {h2h.winsTeam1}V · {h2h.draws}N · {h2h.winsTeam2}D
                         </Text>
                         <View style={s.subDiv} />
                         <Text style={s.subP}>
-                          {opp.code} {opp.name} — {h2h.winsTeam2}V · {h2h.draws}N · {h2h.winsTeam1}P
+                          {opp.code} — {h2h.winsTeam2}V · {h2h.draws}N · {h2h.winsTeam1}D
                         </Text>
                       </>
                     ) : (
-                      <Text style={s.subP}>Historique direct indisponible.</Text>
+                      <Text style={s.subP}>Historique en cours de chargement…</Text>
                     )}
                     <Text style={s.subTap}>Voir le détail ›</Text>
                   </TouchableOpacity>
@@ -613,9 +664,17 @@ export default function HomeScreen() {
                   >
                     <Text style={s.subH}>FORME DU MOMENT</Text>
                     <Text style={s.subLbl}>{self.code}</Text>
-                    {renderFormPills(formSelf)}
+                    {formLoading && !formSelf.length ? (
+                      <ActivityIndicator color={DS.green} style={{ marginTop: 8 }} />
+                    ) : (
+                      renderFormPills(formSelf)
+                    )}
                     <Text style={[s.subLbl, { marginTop: 10 }]}>{opp.code}</Text>
-                    {renderFormPills(formOpp)}
+                    {formLoading && !formOpp.length ? (
+                      <ActivityIndicator color={DS.green} style={{ marginTop: 8 }} />
+                    ) : (
+                      renderFormPills(formOpp)
+                    )}
                     <Text style={s.subTap}>Voir le détail ›</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -627,10 +686,10 @@ export default function HomeScreen() {
                   >
                     <Text style={s.subH}>NE JOUE PAS</Text>
                     {injuries.length ? (
-                      injuries.slice(0, 6).map((inj, i) => (
-                        <Text key={`${inj.name}-${i}`} style={s.subP}>
+                      injuries.slice(0, 5).map((inj, i) => (
+                        <Text key={`${inj.name}-${i}`} style={s.subP} numberOfLines={2}>
                           {inj.name}
-                          {inj.reason ? ` · ${inj.reason}` : ''}
+                          {inj.reason ? `\n${inj.reason}` : ''}
                         </Text>
                       ))
                     ) : (
@@ -643,41 +702,39 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* 6 Moments Forts */}
-          <View style={{ marginBottom: 16 }}>
-            <View style={s.sectionHead}>
-              <Text style={s.sectionTitle}>MOMENTS FORTS</Text>
-              <TouchableOpacity onPress={goMomentsFortsAll}>
-                <Text style={s.sectionAction}>Tout voir</Text>
-              </TouchableOpacity>
-            </View>
-            <MomentsFortsSection
-              videos={momentsVideos}
-              loading={momentsVideosLoading}
-              onOpen={openMomentsFortsFeed}
-              maxItems={3}
-            />
-          </View>
+          {/* 6 Moments Forts — même cadrage que Actus du club */}
+          <MomentsFortsSection
+            videos={momentsVideos}
+            loading={momentsVideosLoading}
+            onOpen={openMomentsFortsFeed}
+            onSeeAll={goMomentsFortsAll}
+            maxItems={8}
+          />
 
-          <NationPowerBar
-            countryCode={countryCode || 'FR'}
-            flag={nationFlag}
-            countryName={nationLabel}
-            power={power?.power ?? 0}
-            rank={worldRank}
-            supporterCount={power?.supporterCount ?? 0}
-            dailyGain={power?.dailyGain ?? 0}
+          <ClubNewsCard
+            onPress={goClubNews}
+            headline={topNews?.title}
+            imageUrl={topNews?.image_url}
+            meta={
+              topNews
+                ? `${categoryLabel(topNews.category)} · ${relativeTimeFr(topNews.published_at)}`
+                : null
+            }
           />
 
           <VenezJouer
-            onTableau={goTableau}
             onPronos={goPronos}
-            onArena={goArena}
-            onFantasy={goFantasy}
+            onPickXi={goPickXi}
+            onQuiz={goUnitedQuiz}
+            onRating={goUnitedRating}
             onShowAll={goPlayHub}
           />
 
-          <WorldRanking ranking={worldRanking} loading={rankingLoading} highlightCode={countryCode} />
+          <PremierLeagueTableCard
+            table={leagueTable}
+            loading={loadingStatic}
+            onPress={goPremierLeagueTable}
+          />
 
           {/* 8 Immanquable — padding horizontal 18 par spec */}
           <View style={{ marginHorizontal: -DS.ph, paddingHorizontal: 18, marginBottom: 16 }}>
@@ -691,11 +748,11 @@ export default function HomeScreen() {
               videos={immanquableVideos}
               loading={immanquableVideosLoading}
               onOpen={openImmanquableFeed}
-              maxItems={4}
+              maxItems={6}
             />
           </View>
 
-          {/* 9 Meilleurs Buteurs */}
+          {/* 9 Meilleurs Buteurs United */}
           <View style={{ marginBottom: 16 }}>
             <View style={s.sectionHead}>
               <Text style={s.sectionTitle}>MEILLEURS BUTEURS</Text>
@@ -704,11 +761,11 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
             <TouchableOpacity activeOpacity={0.95} onPress={goTopScorers} style={s.topHero}>
-              <LinearGradient colors={['rgba(255,184,0,0.35)', '#0A120E']} style={StyleSheet.absoluteFill} />
-              <LinearGradient colors={['rgba(0,0,0,0.2)', 'rgba(0,30,10,0.85)']} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={['rgba(218,41,28,0.45)', '#0c0507']} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={['rgba(0,0,0,0.15)', 'rgba(20,5,8,0.9)']} style={StyleSheet.absoluteFill} />
               <View style={s.topRow}>
-                <LinearGradient colors={['#bfa968', '#B8860B']} style={s.topBadgeGrad}>
-                  <Text style={s.topBadgeT}>#1 MEILLEUR BUTEUR</Text>
+                <LinearGradient colors={['#FBE122', '#B8860B']} style={s.topBadgeGrad}>
+                  <Text style={s.topBadgeT}>#1 UNITED · SAISON</Text>
                 </LinearGradient>
               </View>
               <View style={s.topBot}>
@@ -721,7 +778,7 @@ export default function HomeScreen() {
                 )}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={s.topName}>{top1?.name ?? '—'}</Text>
-                  <Text style={s.topSub}>{top1?.team ?? 'Coupe du Monde'}</Text>
+                  <Text style={s.topSub}>{top1?.team ?? FOTMOB_MU_FULL_NAME}</Text>
                 </View>
                 <View style={s.topGoalRing}>
                   <Text style={s.topGoalNum}>{top1 != null ? String(top1.goals) : '—'}</Text>
@@ -731,12 +788,11 @@ export default function HomeScreen() {
             <View style={s.list3}>
               {topScorers.slice(1, 4).map((row, idx) => {
                 const r = idx + 2;
-                const fc = (findCountry(row.team)?.code ?? countryCode) || 'FR';
                 return (
                   <View key={`${row.name}-${r}`}>
                     <View style={s.listRow}>
                       <Text style={s.listRank}>#{r}</Text>
-                      <LinearGradient colors={[`${getCountryColor(fc)}55`, 'rgba(8,12,9,0.96)']} style={s.listAv}>
+                      <LinearGradient colors={['rgba(218,41,28,0.35)', 'rgba(12,5,7,0.96)']} style={s.listAv}>
                         <View style={s.listAvIcon}>
                           {row.photo ? (
                             <Image source={{ uri: row.photo }} style={{ width: 32, height: 32, borderRadius: 16 }} resizeMode="cover" />
@@ -765,7 +821,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 10 Stats Joueurs */}
+          {/* 10 Stats Joueurs United */}
           <View style={{ marginBottom: 16 }}>
             <Text style={s.h2}>STATS JOUEURS</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingTop: 10, paddingRight: DS.ph }}>
@@ -785,7 +841,7 @@ export default function HomeScreen() {
                     <View key={`${row.name}-tbl-${r}`}>
                       <View style={s.tblR}>
                         <Text style={s.tblRank}>#{r}</Text>
-                        <LinearGradient colors={['rgba(255,255,255,0.08)', 'rgba(8,12,9,0.95)']} style={s.listAv}>
+                        <LinearGradient colors={['rgba(218,41,28,0.2)', 'rgba(12,5,7,0.95)']} style={s.listAv}>
                           {row.photo ? (
                             <Image source={{ uri: row.photo }} style={{ width: 36, height: 36, borderRadius: 18 }} resizeMode="cover" />
                           ) : (
@@ -800,11 +856,7 @@ export default function HomeScreen() {
                             {row.team}
                           </Text>
                         </View>
-                        <Text style={s.tblV}>
-                          {playerStatKind === 'goals' || playerStatKind === 'assists'
-                            ? String(row.value ?? '—')
-                            : '—'}
-                        </Text>
+                        <Text style={s.tblV}>{String(row.value ?? '—')}</Text>
                       </View>
                       {idx < playerPreviewRows.length - 1 ? <View style={s.rowSep} /> : null}
                     </View>
@@ -813,40 +865,6 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => goPlayerStatsRanking(playerStatKind)}>
-              <Text style={[s.linkC, { marginTop: 12 }]}>Tout afficher ›</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* 11 Stats Équipes */}
-          <View style={{ marginBottom: 16 }}>
-            <Text style={s.h2}>STATS PAR ÉQUIPES</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingTop: 10, paddingRight: DS.ph }}>
-              {Object.keys(TEAM_TAB_TO_KIND).map((t) => (
-                <TabPill key={t} label={t} active={tabT === t} onPress={() => setTabT(t)} />
-              ))}
-            </ScrollView>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingTop: 10, paddingRight: DS.ph }}>
-              {teamPreviewRows.slice(0, 3).map((row, idx) => (
-                <TouchableOpacity
-                  key={`${row.countryCode}-${idx}`}
-                  activeOpacity={0.9}
-                  onPress={() => goTeamStatsRanking(teamStatKind)}
-                >
-                  <LinearGradient colors={['#0E1A10', '#0A1409']} style={s.tc}>
-                    <Text style={s.tcH}>{tabT.toUpperCase()}</Text>
-                    <View style={s.tcR}>
-                      <Text style={s.tcN}>{idx + 1}</Text>
-                      <Text style={s.tcFlag}>{findCountry(row.teamName)?.flag ?? '🏳️'}</Text>
-                      <Text style={s.tcP} numberOfLines={1}>
-                        {row.teamName}
-                      </Text>
-                      <Text style={s.tcV}>{String(row.value)}</Text>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity onPress={() => goTeamStatsRanking(teamStatKind)}>
               <Text style={[s.linkC, { marginTop: 12 }]}>Tout afficher ›</Text>
             </TouchableOpacity>
           </View>
@@ -866,21 +884,28 @@ export default function HomeScreen() {
         formOpp={formOppDetail}
         formLoading={formLoading}
         injuries={injuries}
+        injuriesOpp={injuriesOpp}
       />
 
       <StoryPlayerModal
         visible={storyOpen}
-        stories={stories}
+        stories={muStories}
         startIndex={storyStart}
         onStorySeen={markStorySeen}
         onClose={() => setStoryOpen(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.bg },
+  scroll: { flex: 1 },
+  topBar: {
+    paddingHorizontal: DS.ph,
+    paddingBottom: 6,
+    zIndex: 2,
+  },
   wrap: { width: '100%', alignSelf: 'center' },
   mb16: { marginBottom: 16 },
   emptyBanner: {
@@ -889,26 +914,34 @@ const s = StyleSheet.create({
     borderColor: 'rgba(41, 121, 255, 0.22)',
     backgroundColor: 'rgba(41, 121, 255, 0.06)',
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   emptyBannerT: { color: 'rgba(255,255,255,0.82)', fontFamily: F.i600, fontSize: 13, lineHeight: 18, textAlign: 'center' },
 
-  hdrRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, gap: 12 },
+  hdrRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 2,
+    paddingBottom: 4,
+    gap: 12,
+  },
   hdrL: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0 },
   hdrNameWrap: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  hdrSub: { color: 'rgba(255,255,255,0.45)', fontFamily: F.i500, fontSize: 11, marginTop: 1 },
   hdrR: { flexShrink: 0, alignItems: 'flex-end' },
   avRing: {
-    width: 48,
-    height: 48,
+    width: 42,
+    height: 42,
     borderRadius: 999,
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: DS.green,
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    elevation: 12,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
   avIn: { width: 40, height: 40, borderRadius: 999 },
   hdrName: { color: DS.white, fontFamily: F.bebas, fontSize: 22, letterSpacing: 2 },
@@ -927,18 +960,13 @@ const s = StyleSheet.create({
   fpSuffix: { color: COLORS.primaryLight, fontFamily: F.i700, fontSize: 10, letterSpacing: 0.8 },
 
   hero: {
-    height: 240,
-    borderRadius: DS.radius,
+    height: 200,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(180, 206, 240, 0.2)',
-    borderTopColor: LIGHT.cardHighlight,
+    borderColor: 'rgba(218, 41, 28, 0.28)',
     overflow: 'hidden',
-    backgroundColor: '#0a1020',
-    shadowColor: '#c8dcfa',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.22,
-    shadowRadius: 24,
-    elevation: 6,
+    backgroundColor: '#120608',
+    elevation: 3,
   },
   heroVid: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
   radBlob: { position: 'absolute', alignSelf: 'center', borderRadius: 999 },
@@ -981,31 +1009,91 @@ const s = StyleSheet.create({
   emptyMatchS: { color: DS.gray, fontFamily: F.i400, fontSize: 13, textAlign: 'center' },
 
   nxInner: {
-    borderRadius: DS.radius,
+    borderRadius: 14,
     backgroundColor: DS.card,
     overflow: 'hidden',
     paddingBottom: 12,
     borderWidth: 1,
-    borderColor: DS.border,
+    borderColor: 'rgba(218, 41, 28, 0.22)',
   },
-  nxCtx: { backgroundColor: 'rgba(41, 121, 255, 0.04)', borderBottomWidth: 1, borderBottomColor: 'rgba(41, 121, 255, 0.10)', paddingVertical: 10, paddingHorizontal: 12 },
-  nxCtxT: { textAlign: 'center', color: 'rgba(255,255,255,0.78)', fontFamily: F.i600, fontSize: 12 },
-  nxRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 14 },
-  colL: { flex: 1, alignItems: 'flex-start', gap: 8 },
-  colC: { flex: 0.95, alignItems: 'center', gap: 6 },
-  colR: { flex: 1, alignItems: 'flex-end', gap: 8 },
-  logo48: { width: 48, height: 48 },
-  teamNm: { color: DS.white, fontFamily: F.i900, fontSize: 22 },
-  teamCd: { color: 'rgba(255,255,255,0.55)', fontFamily: F.i600, fontSize: 11 },
-  vsTxt: { color: 'rgba(255,255,255,0.15)', fontFamily: F.i700, fontSize: 14 },
-  scoreLive: { color: DS.white, fontFamily: F.i700, fontSize: 18, marginBottom: 2 },
-  cdBig: { color: DS.gold, fontFamily: F.bebas, fontSize: 32, letterSpacing: 4 },
-  liveLn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  nxCtx: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  nxCtxT: {
+    textAlign: 'center',
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: F.i700,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  nxTeams: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  nxTeam: { flex: 1, alignItems: 'center', gap: 6 },
+  nxTeamRight: {},
+  nxMid: { width: 52, alignItems: 'center', justifyContent: 'center' },
+  logo44: { width: 44, height: 44 },
+  teamNm: {
+    color: DS.white,
+    fontFamily: F.i800,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  teamNmRight: {},
+  teamCd: { color: 'rgba(255,255,255,0.45)', fontFamily: F.i600, fontSize: 10 },
+  teamCdRight: {},
+  vsTxt: { color: 'rgba(255,255,255,0.4)', fontFamily: F.i800, fontSize: 12, letterSpacing: 1 },
+  scoreLive: { color: DS.white, fontFamily: F.i800, fontSize: 20 },
+  cdBlock: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  cdLiveBadge: {
+    color: DS.red,
+    fontFamily: F.i800,
+    fontSize: 13,
+    letterSpacing: 1.4,
+  },
+  cdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cdItem: { flexDirection: 'row', alignItems: 'center' },
+  cdCell: {
+    width: 48,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,184,0,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,0,0.32)',
+    alignItems: 'center',
+  },
+  cdNum: { color: DS.gold, fontFamily: F.bebas, fontSize: 22, letterSpacing: 1, lineHeight: 24 },
+  cdUnit: { color: 'rgba(255,184,0,0.7)', fontFamily: F.i700, fontSize: 9, marginTop: 1 },
+  cdSep: {
+    color: 'rgba(255,184,0,0.5)',
+    fontFamily: F.bebas,
+    fontSize: 18,
+    width: 14,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  liveLn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveDotS: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.green },
-  liveTx: { color: DS.green, fontFamily: F.i700, fontSize: 11 },
-  nxFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 14 },
-  phBadge: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(41, 121, 255, 0.12)', borderWidth: 1, borderColor: 'rgba(41, 121, 255, 0.20)' },
-  phBadgeT: { color: DS.green, fontFamily: F.i800, fontSize: 11 },
+  liveTx: { color: 'rgba(255,255,255,0.55)', fontFamily: F.i600, fontSize: 11 },
 
   sub: { width: 210, borderRadius: 14, borderWidth: 1, borderColor: DS.border, backgroundColor: 'rgba(255,255,255,0.03)', padding: 12 },
   subTap: { marginTop: 10, color: DS.green, fontFamily: F.i700, fontSize: 12 },

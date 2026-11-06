@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS } from '../../../constants/colors';
+import { COLORS, UNITED_RED } from '../../../constants/colors';
 import type { PreMatchModalKind } from '../../../hooks/usePreMatchInsights';
 import type { FormChar, FormMatchDetail, H2HDetail, Injury } from '../../../services/footballService';
 
@@ -34,18 +34,35 @@ type PreMatchModalsProps = {
   formOpp: FormMatchDetail[];
   formLoading: boolean;
   injuries: Injury[];
+  injuriesOpp?: Injury[];
 };
 
 function formLetter(c: FormChar): string {
   if (c === 'G') return 'V';
   if (c === 'N') return 'N';
-  return 'P';
+  return 'D';
 }
 
 function formColors(c: FormChar) {
-  if (c === 'G') return { bg: COLORS.primary, text: COLORS.bg };
-  if (c === 'N') return { bg: 'rgba(255,255,255,0.28)', text: COLORS.text };
-  return { bg: COLORS.live, text: COLORS.text };
+  if (c === 'G') return { bg: '#1B8A4A', text: '#fff' };
+  if (c === 'N') return { bg: 'rgba(255,255,255,0.22)', text: '#fff' };
+  return { bg: UNITED_RED, text: '#fff' };
+}
+
+function translateReturn(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  return raw
+    .replace('Early November', 'Début novembre')
+    .replace('Late November', 'Fin novembre')
+    .replace('Mid November', 'Mi-novembre')
+    .replace('Early December', 'Début décembre')
+    .replace('Mid December', 'Mi-décembre')
+    .replace('Late December', 'Fin décembre')
+    .replace('Early January', 'Début janvier')
+    .replace('Early April', 'Début avril')
+    .replace('Mid April', 'Mi-avril')
+    .replace('A few days', 'Quelques jours')
+    .replace('Unknown', 'Inconnu');
 }
 
 function CloseBtn({ onClose }: { onClose: () => void }) {
@@ -56,11 +73,54 @@ function CloseBtn({ onClose }: { onClose: () => void }) {
   );
 }
 
-function TeamLogo({ logo, flag, size = 40 }: { logo?: string; flag: string; size?: number }) {
+function TeamLogo({ logo, code, size = 40 }: { logo?: string; code: string; size?: number }) {
   if (logo) {
-    return <Image source={{ uri: logo }} style={{ width: size, height: size }} resizeMode="contain" />;
+    return (
+      <View style={[styles.logoWrap, { width: size + 8, height: size + 8, borderRadius: (size + 8) / 2 }]}>
+        <Image source={{ uri: logo }} style={{ width: size, height: size }} resizeMode="contain" />
+      </View>
+    );
   }
-  return <Text style={{ fontSize: size * 0.85 }}>{flag}</Text>;
+  return (
+    <View style={[styles.logoFallback, { width: size + 8, height: size + 8, borderRadius: (size + 8) / 2 }]}>
+      <Text style={[styles.logoFallbackT, { fontSize: Math.max(10, size * 0.32) }]}>{code.slice(0, 3)}</Text>
+    </View>
+  );
+}
+
+function PageHeader({
+  title,
+  subtitle,
+  onClose,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+}) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerText}>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
+      </View>
+      <CloseBtn onClose={onClose} />
+    </View>
+  );
+}
+
+function TeamSectionHead({ team, caption }: { team: PreMatchTeamUi; caption?: string }) {
+  return (
+    <View style={styles.teamCard}>
+      <TeamLogo logo={team.logo} code={team.code} size={36} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.teamCardName}>{team.name}</Text>
+        {caption ? <Text style={styles.teamCardCap}>{caption}</Text> : null}
+      </View>
+      <View style={styles.codePill}>
+        <Text style={styles.codePillT}>{team.code}</Text>
+      </View>
+    </View>
+  );
 }
 
 const FaceAFaceBody = memo(function FaceAFaceBody({
@@ -77,83 +137,105 @@ const FaceAFaceBody = memo(function FaceAFaceBody({
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color={COLORS.primary} size="large" />
+        <ActivityIndicator color={UNITED_RED} size="large" />
+        <Text style={styles.loaderT}>Chargement du face-à-face…</Text>
       </View>
     );
   }
 
-  const summary = detail ?? { winsTeam1: 0, draws: 0, winsTeam2: 0, goalsTeam1: 0, goalsTeam2: 0, matches: [] };
+  const summary = detail ?? {
+    winsTeam1: 0,
+    draws: 0,
+    winsTeam2: 0,
+    goalsTeam1: 0,
+    goalsTeam2: 0,
+    matches: [],
+  };
+  const total = Math.max(1, summary.winsTeam1 + summary.draws + summary.winsTeam2);
 
   return (
     <>
-      <View style={styles.h2hTeams}>
-        <View style={styles.h2hTeamCol}>
-          <TeamLogo logo={self.logo} flag={self.flag} />
-          <Text style={styles.h2hTeamName}>{self.name}</Text>
+      <View style={styles.versusCard}>
+        <View style={styles.versusCol}>
+          <TeamLogo logo={self.logo} code={self.code} size={48} />
+          <Text style={styles.versusName}>{self.name}</Text>
         </View>
-        <View style={styles.h2hTeamCol}>
-          <TeamLogo logo={opp.logo} flag={opp.flag} />
-          <Text style={[styles.h2hTeamName, { textAlign: 'right' }]}>{opp.name}</Text>
+        <View style={styles.versusMid}>
+          <Text style={styles.versusVs}>H2H</Text>
+          <Text style={styles.versusTotal}>{total} matchs</Text>
+        </View>
+        <View style={[styles.versusCol, { alignItems: 'flex-end' }]}>
+          <TeamLogo logo={opp.logo} code={opp.code} size={48} />
+          <Text style={[styles.versusName, { textAlign: 'right' }]}>{opp.name}</Text>
         </View>
       </View>
 
-      <View style={styles.statRow}>
-        <View style={styles.statCol}>
+      <View style={styles.statsGrid}>
+        <View style={styles.statBox}>
           <Text style={styles.statNum}>{summary.winsTeam1}</Text>
-          <Text style={styles.statLbl}>Victoires</Text>
+          <Text style={styles.statLbl}>Victoires {self.code}</Text>
         </View>
-        <View style={styles.statCol}>
+        <View style={styles.statBox}>
           <Text style={styles.statNum}>{summary.draws}</Text>
           <Text style={styles.statLbl}>Nuls</Text>
         </View>
-        <View style={styles.statCol}>
+        <View style={styles.statBox}>
           <Text style={styles.statNum}>{summary.winsTeam2}</Text>
-          <Text style={styles.statLbl}>Victoires</Text>
+          <Text style={styles.statLbl}>Victoires {opp.code}</Text>
         </View>
       </View>
 
-      <View style={styles.statRow}>
-        <View style={styles.statCol}>
-          <Text style={styles.statNum}>{summary.goalsTeam1}</Text>
-        </View>
-        <View style={styles.statCol}>
-          <Text style={styles.statLbl}>Buts</Text>
-        </View>
-        <View style={styles.statCol}>
-          <Text style={styles.statNum}>{summary.goalsTeam2}</Text>
-        </View>
+      <View style={styles.barTrack}>
+        <View style={[styles.barSeg, { flex: summary.winsTeam1 || 0.01, backgroundColor: UNITED_RED }]} />
+        <View style={[styles.barSeg, { flex: summary.draws || 0.01, backgroundColor: 'rgba(255,255,255,0.25)' }]} />
+        <View style={[styles.barSeg, { flex: summary.winsTeam2 || 0.01, backgroundColor: '#3B82F6' }]} />
       </View>
 
-      <View style={styles.divider} />
-      <Text style={styles.sectionTitle}>Matches</Text>
+      <View style={styles.goalsRow}>
+        <Text style={styles.goalsNum}>{summary.goalsTeam1}</Text>
+        <Text style={styles.goalsLbl}>Buts marqués (historique)</Text>
+        <Text style={styles.goalsNum}>{summary.goalsTeam2}</Text>
+      </View>
 
+      <Text style={styles.sectionTitle}>Derniers confrontations</Text>
       {summary.matches.length === 0 ? (
-        <Text style={styles.empty}>Aucun face-à-face enregistré entre ces deux équipes.</Text>
+        <View style={styles.emptyCard}>
+          <MaterialCommunityIcons name="soccer-field" size={28} color="rgba(255,255,255,0.35)" />
+          <Text style={styles.empty}>Aucun match terminé trouvé entre ces deux clubs.</Text>
+        </View>
       ) : (
         summary.matches.map((m) => (
-          <View key={m.id} style={styles.matchBlock}>
-            <Text style={styles.matchPhase}>{m.phase}</Text>
-            {m.dateMs ? (
-              <Text style={styles.matchDate}>
-                {new Intl.DateTimeFormat('fr-FR', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                }).format(new Date(m.dateMs))}
-              </Text>
-            ) : null}
+          <View key={m.id} style={styles.matchCard}>
+            <View style={styles.matchCardTop}>
+              <Text style={styles.matchPhase}>{m.phase}</Text>
+              {m.dateMs ? (
+                <Text style={styles.matchDate}>
+                  {new Intl.DateTimeFormat('fr-FR', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  }).format(new Date(m.dateMs))}
+                </Text>
+              ) : null}
+            </View>
             <View style={styles.matchScoreRow}>
-              <Text style={styles.matchTeam} numberOfLines={1}>
-                {m.home.name}
-              </Text>
-              <TeamLogo logo={m.home.logo} flag="" size={28} />
-              <Text style={styles.matchScore}>
-                {m.goalsHome} - {m.goalsAway}
-              </Text>
-              <TeamLogo logo={m.away.logo} flag="" size={28} />
-              <Text style={[styles.matchTeam, { textAlign: 'right' }]} numberOfLines={1}>
-                {m.away.name}
-              </Text>
+              <View style={styles.matchSide}>
+                <TeamLogo logo={m.home.logo} code={m.home.name.slice(0, 3).toUpperCase()} size={28} />
+                <Text style={styles.matchTeam} numberOfLines={2}>
+                  {m.home.name}
+                </Text>
+              </View>
+              <View style={styles.scorePill}>
+                <Text style={styles.matchScore}>
+                  {m.goalsHome} – {m.goalsAway}
+                </Text>
+              </View>
+              <View style={[styles.matchSide, { alignItems: 'flex-end' }]}>
+                <TeamLogo logo={m.away.logo} code={m.away.name.slice(0, 3).toUpperCase()} size={28} />
+                <Text style={[styles.matchTeam, { textAlign: 'right' }]} numberOfLines={2}>
+                  {m.away.name}
+                </Text>
+              </View>
             </View>
           </View>
         ))
@@ -169,13 +251,23 @@ const FormTeamBlock = memo(function FormTeamBlock({
   team: PreMatchTeamUi;
   matches: FormMatchDetail[];
 }) {
+  const wins = matches.filter((m) => m.result === 'G').length;
+  const draws = matches.filter((m) => m.result === 'N').length;
+  const losses = matches.filter((m) => m.result === 'P').length;
+
   return (
-    <View style={styles.formTeamBlock}>
-      <View style={styles.formTeamHead}>
-        <TeamLogo logo={team.logo} flag={team.flag} size={36} />
-        <Text style={styles.formTeamName}>{team.name}</Text>
+    <View style={styles.formBlock}>
+      <TeamSectionHead team={team} caption={`${matches.length || 5} derniers matchs · ${wins}V ${draws}N ${losses}D`} />
+      <View style={styles.formPillsRow}>
+        {matches.slice(0, 5).map((m, i) => {
+          const fc = formColors(m.result);
+          return (
+            <View key={`pill-${i}`} style={[styles.formMiniPill, { backgroundColor: fc.bg }]}>
+              <Text style={styles.formMiniPillT}>{formLetter(m.result)}</Text>
+            </View>
+          );
+        })}
       </View>
-      <Text style={styles.formSub}>5 derniers matches.</Text>
       {matches.length === 0 ? (
         <Text style={styles.empty}>Historique indisponible.</Text>
       ) : (
@@ -184,7 +276,7 @@ const FormTeamBlock = memo(function FormTeamBlock({
           return (
             <View key={`${m.label}-${i}`} style={styles.formRow}>
               <View style={[styles.formBadge, { backgroundColor: fc.bg }]}>
-                <Text style={[styles.formBadgeT, { color: fc.text }]}>{formLetter(m.result)}</Text>
+                <Text style={styles.formBadgeT}>{formLetter(m.result)}</Text>
               </View>
               <View style={styles.formTexts}>
                 <Text style={styles.formLabel}>{m.label}</Text>
@@ -214,7 +306,8 @@ const FormeBody = memo(function FormeBody({
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color={COLORS.primary} size="large" />
+        <ActivityIndicator color={UNITED_RED} size="large" />
+        <Text style={styles.loaderT}>Chargement de la forme…</Text>
       </View>
     );
   }
@@ -222,7 +315,6 @@ const FormeBody = memo(function FormeBody({
   return (
     <>
       <FormTeamBlock team={self} matches={formSelf} />
-      <View style={styles.divider} />
       <FormTeamBlock team={opp} matches={formOpp} />
     </>
   );
@@ -232,39 +324,64 @@ const InjuriesBody = memo(function InjuriesBody({
   self,
   opp,
   injuries,
+  injuriesOpp,
 }: {
   self: PreMatchTeamUi;
   opp: PreMatchTeamUi;
   injuries: Injury[];
+  injuriesOpp: Injury[];
 }) {
+  const renderList = (list: Injury[]) =>
+    list.length === 0 ? (
+      <View style={styles.emptyCard}>
+        <MaterialCommunityIcons name="check-circle-outline" size={26} color="#1B8A4A" />
+        <Text style={styles.empty}>Aucun absent signalé.</Text>
+      </View>
+    ) : (
+      list.map((inj, i) => (
+        <View key={`${inj.name}-${i}`} style={styles.injCard}>
+          {inj.photo ? (
+            <Image source={{ uri: inj.photo }} style={styles.injPhoto} />
+          ) : (
+            <View style={styles.injIcon}>
+              <MaterialCommunityIcons name="medical-bag" size={20} color={UNITED_RED} />
+            </View>
+          )}
+          <View style={styles.injTexts}>
+            <Text style={styles.injName}>{inj.name}</Text>
+            {inj.reason ? (
+              <Text style={styles.injReason}>
+                {translateReturn(
+                  inj.reason
+                    .replace(/^Retour\s*\/\s*motif\s*:\s*/i, '')
+                    .replace(/^Retour\s*:\s*/i, '')
+                ) ?? inj.reason}
+              </Text>
+            ) : (
+              <Text style={styles.injReason}>Blessure non précisée</Text>
+            )}
+          </View>
+          <MaterialCommunityIcons name="medical-bag" size={18} color="rgba(218,41,28,0.7)" />
+        </View>
+      ))
+    );
+
   return (
     <>
-      <Text style={styles.injIntro}>
-        Joueurs indisponibles ou blessés signalés avant le match.
-      </Text>
-      <View style={styles.injTeamHead}>
-        <Text style={styles.injFlag}>{self.flag}</Text>
-        <Text style={styles.injTeamName}>{self.name}</Text>
+      <View style={styles.infoBanner}>
+        <MaterialCommunityIcons name="information-outline" size={18} color="rgba(255,255,255,0.75)" />
+        <Text style={styles.infoBannerT}>
+          Absents signalés par FotMob avant le coup d’envoi. Les retours sont indicatifs.
+        </Text>
       </View>
-      {injuries.length === 0 ? (
-        <Text style={styles.empty}>Aucune blessure signalée pour ton équipe.</Text>
-      ) : (
-        injuries.map((inj, i) => (
-          <View key={`${inj.name}-${i}`} style={styles.injRow}>
-            <MaterialCommunityIcons name="medical-bag" size={18} color={COLORS.live} />
-            <View style={styles.injTexts}>
-              <Text style={styles.injName}>{inj.name}</Text>
-              {inj.reason ? <Text style={styles.injReason}>{inj.reason}</Text> : null}
-            </View>
-          </View>
-        ))
-      )}
-      <View style={[styles.divider, { marginTop: 20 }]} />
-      <View style={styles.injTeamHead}>
-        <Text style={styles.injFlag}>{opp.flag}</Text>
-        <Text style={styles.injTeamName}>{opp.name}</Text>
-      </View>
-      <Text style={styles.empty}>Données adverses bientôt disponibles.</Text>
+
+      <TeamSectionHead team={self} caption={`${injuries.length} joueur${injuries.length > 1 ? 's' : ''} indisponible${injuries.length > 1 ? 's' : ''}`} />
+      {renderList(injuries)}
+
+      <View style={{ height: 18 }} />
+
+      <TeamSectionHead team={opp} caption={`${injuriesOpp.length} joueur${injuriesOpp.length > 1 ? 's' : ''} indisponible${injuriesOpp.length > 1 ? 's' : ''}`} />
+      {renderList(injuriesOpp)}
     </>
   );
 });
@@ -281,19 +398,21 @@ export const PreMatchModals = memo(function PreMatchModals({
   formOpp,
   formLoading,
   injuries,
+  injuriesOpp = [],
 }: PreMatchModalsProps) {
   if (!kind) return null;
 
-  const title =
-    kind === 'h2h' ? 'Face-à-face' : kind === 'form' ? 'Forme du moment' : 'Ne joue pas';
+  const meta =
+    kind === 'h2h'
+      ? { title: 'Face-à-face', subtitle: `${self.code} vs ${opp.code} · historique FotMob` }
+      : kind === 'form'
+        ? { title: 'Forme du moment', subtitle: '5 derniers résultats des deux clubs' }
+        : { title: 'Ne joue pas', subtitle: 'Blessés et absents confirmés' };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          <CloseBtn onClose={onClose} />
-        </View>
+        <PageHeader title={meta.title} subtitle={meta.subtitle} onClose={onClose} />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -305,7 +424,9 @@ export const PreMatchModals = memo(function PreMatchModals({
           {kind === 'form' ? (
             <FormeBody self={self} opp={opp} formSelf={formSelf} formOpp={formOpp} loading={formLoading} />
           ) : null}
-          {kind === 'injuries' ? <InjuriesBody self={self} opp={opp} injuries={injuries} /> : null}
+          {kind === 'injuries' ? (
+            <InjuriesBody self={self} opp={opp} injuries={injuries} injuriesOpp={injuriesOpp} />
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -313,69 +434,234 @@ export const PreMatchModals = memo(function PreMatchModals({
 });
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#060d1a' },
+  safe: { flex: 1, backgroundColor: '#0c0507' },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    gap: 12,
   },
+  headerText: { flex: 1 },
   title: {
     color: COLORS.text,
-    fontSize: 34,
-    fontWeight: '400',
+    fontSize: 30,
     fontFamily: 'BebasNeue_400Regular',
-    letterSpacing: 0.5,
-    flex: 1,
+    letterSpacing: 0.8,
+  },
+  subtitle: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 13,
+    marginTop: 4,
+    lineHeight: 18,
   },
   closeBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 32 },
-  loader: { paddingVertical: 48, alignItems: 'center' },
-  empty: { color: COLORS.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 8 },
-  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: 20 },
-  sectionTitle: { color: COLORS.text, fontSize: 22, fontWeight: '700', marginBottom: 12 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40, gap: 4 },
+  loader: { paddingVertical: 56, alignItems: 'center', gap: 12 },
+  loaderT: { color: 'rgba(255,255,255,0.55)', fontSize: 13 },
+  empty: { color: 'rgba(255,255,255,0.55)', fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  emptyCard: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 18,
+    marginBottom: 10,
+  },
 
-  h2hTeams: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, marginBottom: 20 },
-  h2hTeamCol: { flex: 1, gap: 8 },
-  h2hTeamName: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
-  statRow: { flexDirection: 'row', marginBottom: 16 },
-  statCol: { flex: 1, alignItems: 'center' },
-  statNum: { color: COLORS.text, fontSize: 28, fontWeight: '700' },
-  statLbl: { color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 4 },
-  matchBlock: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
-  matchPhase: { color: 'rgba(255,255,255,0.65)', fontSize: 13, marginBottom: 4 },
-  matchDate: { color: 'rgba(255,255,255,0.45)', fontSize: 11, marginBottom: 8 },
+  logoWrap: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoFallback: {
+    backgroundColor: UNITED_RED,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoFallbackT: { color: '#fff', fontWeight: '900' },
+
+  teamCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(218,41,28,0.2)',
+    marginBottom: 12,
+  },
+  teamCardName: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  teamCardCap: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 },
+  codePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(218,41,28,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(218,41,28,0.35)',
+  },
+  codePillT: { color: UNITED_RED, fontSize: 11, fontWeight: '800' },
+
+  versusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 14,
+  },
+  versusCol: { flex: 1, gap: 8 },
+  versusName: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  versusMid: { alignItems: 'center', paddingHorizontal: 8 },
+  versusVs: { color: UNITED_RED, fontFamily: 'BebasNeue_400Regular', fontSize: 22, letterSpacing: 1 },
+  versusTotal: { color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 },
+
+  statsGrid: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  statNum: { color: '#fff', fontSize: 24, fontWeight: '800' },
+  statLbl: { color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 4, textAlign: 'center' },
+  barTrack: { flexDirection: 'row', height: 8, borderRadius: 999, overflow: 'hidden', marginBottom: 14, gap: 2 },
+  barSeg: { height: '100%', borderRadius: 999 },
+  goalsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    marginBottom: 4,
+  },
+  goalsNum: { color: '#fff', fontSize: 20, fontWeight: '800', minWidth: 36, textAlign: 'center' },
+  goalsLbl: { color: 'rgba(255,255,255,0.5)', fontSize: 12, flex: 1, textAlign: 'center' },
+
+  matchCard: {
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    marginBottom: 10,
+  },
+  matchCardTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  matchPhase: { color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '600' },
+  matchDate: { color: 'rgba(255,255,255,0.4)', fontSize: 11 },
   matchScoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  matchTeam: { flex: 1, color: COLORS.text, fontSize: 15, fontWeight: '700' },
-  matchScore: { color: COLORS.text, fontSize: 18, fontWeight: '800', minWidth: 52, textAlign: 'center' },
+  matchSide: { flex: 1, gap: 6 },
+  matchTeam: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  scorePill: {
+    minWidth: 56,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(218,41,28,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(218,41,28,0.3)',
+    alignItems: 'center',
+  },
+  matchScore: { color: '#fff', fontSize: 15, fontWeight: '800' },
 
-  formTeamBlock: { marginBottom: 8 },
-  formTeamHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-  formTeamName: { color: COLORS.text, fontSize: 18, fontWeight: '700' },
-  formSub: { color: 'rgba(255,255,255,0.55)', fontSize: 13, marginBottom: 12 },
-  formRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
-  formBadge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  formBadgeT: { fontSize: 14, fontWeight: '900' },
+  formBlock: { marginBottom: 18 },
+  formPillsRow: { flexDirection: 'row', gap: 6, marginBottom: 12, paddingHorizontal: 2 },
+  formMiniPill: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formMiniPillT: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  formRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 8,
+  },
+  formBadge: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  formBadgeT: { fontSize: 13, fontWeight: '900', color: '#fff' },
   formTexts: { flex: 1 },
-  formLabel: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
-  formMeta: { color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4 },
+  formLabel: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  formMeta: { color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 3 },
 
-  injIntro: { color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 20, marginBottom: 16 },
-  injTeamHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  injFlag: { fontSize: 22 },
-  injTeamName: { color: COLORS.text, fontSize: 17, fontWeight: '700' },
-  injRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
+  infoBanner: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 14,
+  },
+  infoBannerT: { flex: 1, color: 'rgba(255,255,255,0.65)', fontSize: 13, lineHeight: 18 },
+  injCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(218,41,28,0.18)',
+    marginBottom: 8,
+  },
+  injIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(218,41,28,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  injPhoto: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
   injTexts: { flex: 1 },
-  injName: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
-  injReason: { color: COLORS.textSecondary, fontSize: 13, marginTop: 2 },
+  injName: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  injReason: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 3 },
 });

@@ -1,7 +1,7 @@
 import type { TranslationKeys } from './en';
 
 const pt: TranslationKeys = {
-  nav: { home: 'Início', live: 'Ao Vivo', hub: 'Hub', fantasy: 'Fantasy' },
+  nav: { home: 'Início', live: 'Ao Vivo', hub: 'Vídeos', fantasy: 'Fantasy' },
   common: {
     loading: 'Carregando...', back: 'Voltar', save: 'Salvar', cancel: 'Cancelar',
     confirm: 'Confirmar', viewAll: 'Ver tudo', close: 'Fechar', understood: 'Entendido!',

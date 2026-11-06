@@ -52,7 +52,7 @@ export default function MomentsFortsAllScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sub}>
-          Tous les moments forts GOALYA — appuie pour lancer le lecteur plein écran.
+          Résumés des matchs Manchester United déjà joués — mis à jour dès qu’une nouvelle vidéo sort.
         </Text>
 
         {loading && videos.length === 0 ? (

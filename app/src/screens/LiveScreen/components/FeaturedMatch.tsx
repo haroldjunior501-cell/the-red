@@ -31,18 +31,22 @@ function statusLabel(status: LiveMatch['status']): string {
 
 export const FeaturedMatch = memo(function FeaturedMatch({ match, engagement, onPress }: FeaturedMatchProps) {
   const live = match.status === 'live' || match.status === 'extra_time' || match.status === 'penalties';
+  const upcoming = match.status === 'upcoming';
+  const scoreLabel = upcoming
+    ? match.kickoff_label ?? 'VS'
+    : `${match.home_score} - ${match.away_score}`;
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <View style={styles.badgeRow}>
-        <Text style={styles.focus}>WORLD FOCUS</Text>
+        <Text style={styles.focus}>UNITED FOCUS</Text>
         {live ? (
           <View style={styles.livePill}>
             <View style={styles.dot} />
             <Text style={styles.liveTxt}>{match.minute ? `${match.minute}'` : 'LIVE'}</Text>
           </View>
         ) : (
-          <Text style={styles.statusOff}>{statusLabel(match.status)}</Text>
+          <Text style={styles.statusOff}>{upcoming ? 'PROCHAIN' : statusLabel(match.status)}</Text>
         )}
       </View>
 
@@ -53,9 +57,7 @@ export const FeaturedMatch = memo(function FeaturedMatch({ match, engagement, on
             {match.home_name}
           </Text>
         </View>
-        <Text style={styles.score}>
-          {match.home_score} - {match.away_score}
-        </Text>
+        <Text style={[styles.score, upcoming && styles.scoreKick]}>{scoreLabel}</Text>
         <View style={styles.teamCol}>
           <TeamCrest countryCode={match.away_country_code} logoUrl={match.away_logo_url} size={36} />
           <Text style={styles.teamName} numberOfLines={1}>
@@ -71,7 +73,7 @@ export const FeaturedMatch = memo(function FeaturedMatch({ match, engagement, on
       <View style={styles.statsRow}>
         <Text style={styles.stat}>👁 {formatViewers(engagement.viewerCount)}</Text>
         <Text style={styles.stat}>💬 {engagement.messageCount}</Text>
-        <Text style={styles.stat}>🔥 Chaos {engagement.chaosLevel}%</Text>
+        <Text style={styles.stat}>🔥 {engagement.chaosLevel}%</Text>
       </View>
     </Pressable>
   );
@@ -106,6 +108,12 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     minWidth: 120,
     textAlign: 'center',
+  },
+  scoreKick: {
+    fontFamily: DS.inter,
+    fontSize: 13,
+    letterSpacing: 0.3,
+    lineHeight: 18,
   },
   round: { color: DS.muted, fontSize: 11, textAlign: 'center', marginTop: 8 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: DS.border },

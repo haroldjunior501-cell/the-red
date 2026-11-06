@@ -62,8 +62,10 @@ function VideoPage({
           source={{ uri: item.videoUrl }}
           style={styles.video}
           shouldPlay={active}
-          isLooping
+          isLooping={false}
           isMuted={false}
+          titleHint={item.title}
+          youtubeMode="watch"
         />
       ) : (
         <Text style={styles.noVideo}>Vidéo indisponible</Text>
@@ -76,7 +78,7 @@ function VideoPage({
       />
       <View style={styles.caption}>
         <Text style={styles.captionTitle}>{item.title}</Text>
-        <Text style={styles.captionSub}>{item.chapter || item.episodeNumber || 'GOALYA'}</Text>
+        <Text style={styles.captionSub}>{item.chapter || item.episodeNumber || 'THE RED · @manutd'}</Text>
       </View>
     </View>
   );
@@ -150,7 +152,7 @@ export default function MomentsFortsVideoScreen() {
     const v = videos[activeIndex];
     if (!v) return;
     try {
-      await Share.share({ message: `${v.title} — GOALYA` });
+      await Share.share({ message: `${v.title} — THE RED · ${v.videoUrl}` });
     } catch {
       /* ignore */
     }

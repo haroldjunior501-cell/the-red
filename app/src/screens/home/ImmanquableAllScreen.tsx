@@ -52,7 +52,7 @@ export default function ImmanquableAllScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sub}>
-          Toutes les vidéos de la zone Immanquable — appuie pour lancer le lecteur vertical.
+          Contenus officiels @manutd à ne pas manquer — Inside Carrington, exclus & nouveautés.
         </Text>
 
         {loading && videos.length === 0 ? (

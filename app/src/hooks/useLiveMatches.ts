@@ -1,137 +1,50 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getMatchEvents, getLiveMatches, isFootballDataConfigured } from '../services/livescoreApi';
-import {
-  engagementForMatch,
-  subscribeMatchChatCount,
-  subscribeNationsActivity,
-} from '../services/liveFirebaseService';
-import { parseApiEvents, parseMatchList } from '../services/liveMatchParsers';
-import {
-  fetchFotmobLiveMatches,
-  fetchFotmobUpcomingMatches,
-  fetchLiveSectionFromFotmob,
-} from '../services/liveFotmobService';
-import { isFotmobFootballReachable } from '../services/fotmobFootballApi';
+import { engagementForMatch, subscribeMatchChatCount, subscribeNationsActivity } from '../services/liveFirebaseService';
+import { fetchUnitedLiveSection } from '../services/liveUnitedService';
 import type { LiveFilterKey, LiveMatch, MatchEngagement } from '../types/live.types';
 import { filterMatchByPhase, pickFeaturedMatch } from '../utils/liveMatchUtils';
-import { mergeWithLocalWorldCupCalendar } from '../utils/wc2026LiveFallback';
 import type { NationActivityRow } from '../services/hubRtdbService';
 
-const POLL_MS = 30_000;
+const POLL_MS = 20_000;
 
 export type LiveMatchesStatus = 'loading' | 'ready' | 'upcoming' | 'empty' | 'error' | 'disabled';
-
-function liveSectionEnabled(): boolean {
-  return isFotmobFootballReachable() || isFootballDataConfigured();
-}
 
 export function useLiveMatches(filter: LiveFilterKey = 'all') {
   const [status, setStatus] = useState<LiveMatchesStatus>('loading');
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<LiveMatch[]>([]);
+  const [recentMatches, setRecentMatches] = useState<LiveMatch[]>([]);
   const [upcomingLoading, setUpcomingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nations, setNations] = useState<Record<string, NationActivityRow>>({});
   const [chatCounts, setChatCounts] = useState<Record<string, number>>({});
+  const featuredFallback = useRef<LiveMatch | null>(null);
 
-  const fetchUpcoming = useCallback(async (): Promise<number> => {
+  const fetchMatches = useCallback(async (silent: boolean) => {
+    if (!silent) setStatus('loading');
     setUpcomingLoading(true);
     try {
-      const fixtures = await fetchFotmobUpcomingMatches();
-      setUpcomingMatches(fixtures);
-      return fixtures.length;
+      const section = await fetchUnitedLiveSection(!silent);
+      setMatches(section.live);
+      setUpcomingMatches(section.upcoming);
+      setRecentMatches(section.recent);
+      featuredFallback.current = section.featured;
+      setError(null);
+
+      if (section.live.length) {
+        setStatus('ready');
+      } else if (section.upcoming.length || section.recent.length) {
+        setStatus(section.upcoming.length ? 'upcoming' : 'ready');
+      } else {
+        setStatus('empty');
+      }
     } catch {
-      setUpcomingMatches([]);
-      return 0;
+      setError('Impossible de charger les matchs United');
+      setStatus('error');
     } finally {
       setUpcomingLoading(false);
     }
   }, []);
-
-  const enrichLiveEvents = useCallback(async (base: LiveMatch[]): Promise<LiveMatch[]> => {
-    if (!isFootballDataConfigured()) return base;
-    return Promise.all(
-      base.map(async (m) => {
-        try {
-          const evPayload = await getMatchEvents(m.id);
-          const events = parseApiEvents(
-            evPayload,
-            m.home_team_id,
-            m.away_team_id,
-            m.home_country_code,
-            m.away_country_code
-          );
-          return { ...m, events };
-        } catch {
-          return m;
-        }
-      })
-    );
-  }, []);
-
-  const fetchMatches = useCallback(
-    async (silent: boolean) => {
-      if (!silent) setStatus('loading');
-      try {
-        let base: LiveMatch[] = [];
-        let upcoming: LiveMatch[] = [];
-
-        if (liveSectionEnabled() && isFotmobFootballReachable()) {
-          try {
-            const fotmob = await fetchLiveSectionFromFotmob();
-            base = fotmob.live;
-            upcoming = fotmob.upcoming;
-          } catch {
-            const [live, up] = await Promise.all([
-              fetchFotmobLiveMatches().catch(() => [] as LiveMatch[]),
-              fetchFotmobUpcomingMatches().catch(() => [] as LiveMatch[]),
-            ]);
-            base = live;
-            upcoming = up;
-          }
-        } else if (liveSectionEnabled()) {
-          upcoming = await fetchFotmobUpcomingMatches().catch(() => []);
-        }
-
-        if (!base.length && isFootballDataConfigured()) {
-          const res = await getLiveMatches();
-          base = parseMatchList(res);
-        }
-
-        const merged = mergeWithLocalWorldCupCalendar(base, upcoming);
-        base = merged.live;
-        upcoming = merged.upcoming;
-        setUpcomingMatches(upcoming);
-
-        const enriched = await enrichLiveEvents(base);
-        setMatches(enriched);
-        setError(null);
-
-        if (enriched.length) {
-          setStatus('ready');
-        } else if (upcoming.length) {
-          setStatus('upcoming');
-        } else {
-          const upcomingCount = await fetchUpcoming();
-          if (upcomingCount > 0) {
-            setStatus('upcoming');
-          } else {
-            const local = mergeWithLocalWorldCupCalendar([], []);
-            setUpcomingMatches(local.upcoming);
-            setMatches(local.live);
-            setStatus(local.live.length ? 'ready' : local.upcoming.length ? 'upcoming' : 'empty');
-          }
-        }
-      } catch {
-        const local = mergeWithLocalWorldCupCalendar([], []);
-        setMatches(local.live);
-        setUpcomingMatches(local.upcoming);
-        setError(local.upcoming.length || local.live.length ? null : 'Impossible de charger les matchs');
-        setStatus(local.live.length ? 'ready' : local.upcoming.length ? 'upcoming' : 'error');
-      }
-    },
-    [enrichLiveEvents, fetchUpcoming]
-  );
 
   useEffect(() => {
     void fetchMatches(false);
@@ -154,35 +67,53 @@ export function useLiveMatches(filter: LiveFilterKey = 'all') {
 
   const engagementById = useMemo(() => {
     const map: Record<string, MatchEngagement> = {};
-    for (const m of matches) {
+    for (const m of [...matches, ...upcomingMatches, ...recentMatches]) {
       map[m.id] = engagementForMatch(m, nations, chatCounts[m.id] ?? 0);
     }
     return map;
-  }, [matches, nations, chatCounts]);
+  }, [matches, upcomingMatches, recentMatches, nations, chatCounts]);
 
-  const filtered = useMemo(
-    () => matches.filter((m) => filterMatchByPhase(m, filter)),
-    [matches, filter]
-  );
+  const pool = useMemo(() => {
+    if (filter === 'upcoming') return upcomingMatches;
+    if (filter === 'played') return recentMatches;
+    if (filter === 'live') return matches;
+    // all / comps : live + upcoming + récents
+    const seen = new Set<string>();
+    const out: LiveMatch[] = [];
+    for (const m of [...matches, ...upcomingMatches, ...recentMatches]) {
+      if (seen.has(m.id)) continue;
+      if (!filterMatchByPhase(m, filter)) continue;
+      seen.add(m.id);
+      out.push(m);
+    }
+    return out;
+  }, [filter, matches, upcomingMatches, recentMatches]);
 
   const filteredUpcoming = useMemo(
-    () => upcomingMatches.filter((m) => filterMatchByPhase(m, filter)),
+    () => upcomingMatches.filter((m) => filter === 'all' || filter === 'upcoming' || filterMatchByPhase(m, filter)),
     [upcomingMatches, filter]
   );
 
-  const featuredMatch = useMemo(
-    () => pickFeaturedMatch(filtered, engagementById),
-    [filtered, engagementById]
-  );
+  const featuredMatch = useMemo(() => {
+    const liveFeatured = pickFeaturedMatch(
+      matches.filter((m) => filter === 'all' || filter === 'live' || filterMatchByPhase(m, filter)),
+      engagementById
+    );
+    if (liveFeatured) return liveFeatured;
+    if (filter === 'played') return pool[0] ?? null;
+    if (filter === 'upcoming') return filteredUpcoming[0] ?? null;
+    return featuredFallback.current;
+  }, [matches, filter, engagementById, pool, filteredUpcoming]);
 
   const otherMatches = useMemo(() => {
-    if (!featuredMatch) return filtered;
-    return filtered.filter((m) => m.id !== featuredMatch.id);
-  }, [filtered, featuredMatch]);
+    if (!featuredMatch) return pool;
+    return pool.filter((m) => m.id !== featuredMatch.id);
+  }, [pool, featuredMatch]);
 
   return {
-    matches: filtered,
+    matches: pool,
     upcomingMatches: filteredUpcoming,
+    recentMatches,
     featuredMatch,
     otherMatches,
     engagementById,

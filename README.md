@@ -36,6 +36,15 @@ L'application repose sur **3 piliers fondamentaux** :
 - 📰 **Pilier 2 : United News** — Agrégation d'actualités certifiées du club, filtre chronologique et lecteur d'articles sans distraction avec mode de lecture hors-ligne.
 - 🗣️ **Pilier 3 : Fan Community** — Espace d'échange entre passionnés avec publication de posts (possibilité d'associer un match spécifique), commentaires et réactions dédiées (*Red*, *Fire*, *Like*).
 
+### Fonctionnalités mobiles livrées (Expo)
+| Onglet | Contenu |
+|---|---|
+| **Home** | Prochain match, news club, moments forts / immanquables, classement PL centré United, hub jeux |
+| **Live** | Centre match United : score live, chronologie, stats, compositions, H2H, mini-classement PL |
+| **Vidéos** | Highlights / contenus YouTube officiels Manchester United |
+| **Mon XI** | Fantasy « Pick Your XI » United (effectif club, sans budget) |
+| **Programme** | Calendrier saison complet (PL, UCL, EFL Cup, amicaux) via FotMob |
+
 > **Règle d'or ergonomique** : N'importe quelle fonctionnalité clé de l'application est accessible en **3 clics/taps maximum** depuis l'écran d'accueil.
 
 ---
@@ -79,20 +88,22 @@ graph TD
     end
 
     subgraph ExternalAPIs ["Fournisseurs Tiers (Isolés)"]
-        ExtFootball["⚽ API Football / SportsMonks"]
-        ExtNews["📰 Club RSS / News API"]
+        ExtFootball["⚽ FotMob / API Football"]
+        ExtNews["📰 Club News / OneFootball"]
         Adapters -.->|Fallback si panne| ExtFootball
         Adapters -.->|Fallback si panne| ExtNews
     end
 
     ExpoApp -->|HTTP REST / JSON| Nginx
     Nginx -->|Reverse-Proxy Pass| FastAPI
+    ExpoApp -.->|Enrichissement live (cache local)| ExtFootball
 ```
 
 ### Principes d'ingénierie clés :
-1. **Isolation stricte des API tierces** : Le client mobile ne contacte **jamais** directement les API externes. Tout transite par les adaptateurs backend (`football.py`, `news.py`) qui normalisent les formats et disposent de bouchons locaux en cas d'indisponibilité.
-2. **Offline-First & Graceful Degradation** : Le client mobile intègre un service de secours (`theRedApiClient.ts`) capable de restituer un contenu cohérent même sans réseau.
-3. **Stateless Backend** : Pas d'état de session conservé en mémoire vive sur le serveur ; chaque requête authentifiée transporte son jeton JWT dans l'en-tête `Authorization: Bearer <token>`.
+1. **Isolation des API tierces côté backend** : Les adaptateurs FastAPI (`football.py`, `news.py`) normalisent les formats et disposent de bouchons locaux en cas d'indisponibilité.
+2. **Enrichissement mobile contrôlé** : Le client Expo consomme l'API THE RED et enrichit le Match Center / Live / Programme via des services dédiés (`fotmobClubApi.ts`, `liveUnitedService.ts`) avec cache AsyncStorage et polling.
+3. **Offline-First & Graceful Degradation** : Le client mobile intègre un service de secours (`theRedApiClient.ts`) capable de restituer un contenu cohérent même sans réseau.
+4. **Stateless Backend** : Pas d'état de session conservé en mémoire vive sur le serveur ; chaque requête authentifiée transporte son jeton JWT dans l'en-tête `Authorization: Bearer <token>`.
 
 ---
 
@@ -199,14 +210,18 @@ erDiagram
 | Périmètre | Technologie | Rôle & Justification |
 |---|---|---|
 | **Mobile Frontend** | **Expo / React Native (TypeScript)** | Application native multiplateforme (iOS & Android) |
+| **État & données UI** | **TanStack Query + AsyncStorage** | Cache, refetch, polling live |
+| **Navigation** | **React Navigation (tabs + stacks)** | Parcours Home / Live / Vidéos / Mon XI / Programme |
 | **Backend API** | **FastAPI (Python 3.10+)** | Framework REST asynchrone à haute performance |
 | **Validation & Typage** | **Pydantic v2** | Sérialisation et validation stricte des données |
 | **Base de Données** | **PostgreSQL 16 Alpine** | SGBDR relationnel robuste, ACID et scalable |
 | **ORM & Migrations** | **SQLAlchemy 2.0 + Alembic** | Modélisation objet-relationnelle et migrations versionnées |
+| **Temps réel (optionnel)** | **Firebase Realtime DB** | Engagement / activité fans sur le Live |
 | **Sécurité** | **bcrypt + PyJWT** | Hachage sécurisé et jetons d'accès Bearer |
 | **Reverse Proxy** | **Nginx Alpine** | Passerelle HTTP, routage, headers de sécurité |
 | **Conteneurisation** | **Docker & Docker Compose** | Environnement d'exécution unifié et reproductible |
 | **Tests** | **Pytest + TestClient (httpx)** | Tests unitaires et d'intégration automatisés |
+| **Données sportives** | **FotMob (data API)** | Fixtures United, live, stats, compositions |
 
 ---
 
@@ -237,14 +252,25 @@ THE-RED/
 │       └── test_api.py             # Suite de tests d'intégration (5/5 passés)
 └── app/                            # Application Mobile Expo / React Native
     ├── App.tsx                     # Racine de l'application mobile
-    ├── app.json                    # Configuration du projet Expo (THE RED, com.thered.app)
-    ├── package.json                # Dépendances npm du client mobile
+    ├── app.json                    # Configuration Expo (THE RED)
+    ├── package.json                # Dépendances npm
+    ├── server/                     # Micro-services auxiliaires (OneFootball, YouTube)
     └── src/
-        ├── screens/the-red/        # Écrans clés (MatchCenter, News, Community)
-        ├── services/               # Client API (TheRedApi) et gestionnaires de données
-        ├── navigation/             # Navigation par onglets (respect de la règle des 3 taps)
-        └── constants/              # Charte graphique Manchester United (Rouge, Noir, Or)
+        ├── screens/                # Home, Live, Programme, Fantasy, Videos, UnitedGames
+        ├── services/               # theRedApiClient, fotmob*, liveUnited, news
+        ├── hooks/                  # useTheRedHome, useLiveMatches, useUnitedProgramme…
+        ├── navigation/             # AppTabs + HomeStack + LiveStack
+        └── constants/              # Charte THE RED (rouge #DA291C, or #FBE122)
 ```
+
+---
+
+## 🔀 Contrôle de version
+
+- Branche principale : `main` (dépôt GitHub : [haroldjunior501-cell/the-red](https://github.com/haroldjunior501-cell/the-red)).
+- Commits conventionnels (`feat:`, `fix:`, `docs:`) pour tracer les livrables de sprint.
+- Revue via pull requests lorsque des branches de feature sont ouvertes.
+- Secrets exclus via `.gitignore` (`.env`, comptes de service Firebase, caches).
 
 ---
 
@@ -360,8 +386,10 @@ Le développement du projet a été structuré en **6 sprints itératifs** :
 | **Sprint 2** | Match Center | Adaptateur Football, endpoints `/matches` | ✅ Terminé |
 | **Sprint 3** | United News | Adaptateur News, flux d'actualités, fallback | ✅ Terminé |
 | **Sprint 4** | Fan Community | Modèles Post/Comment/Reaction, endpoints `/community` | ✅ Terminé |
-| **Sprint 5** | Frontend Expo | Écrans Home, MatchCenter, News, Community (règle des 3 taps) | ✅ Terminé |
-| **Sprint 6** | QA & Soutenance | Validation Pytest 100%, documentation, revue de projet | ✅ Terminé |
+| **Sprint 5** | Frontend Expo | Navigation onglets, Home, Match Center, News, Community | ✅ Terminé |
+| **Sprint 6** | Live & Programme | Centre match United (score, events, stats, compos), calendrier saison | ✅ Terminé |
+| **Sprint 7** | Engagement fans | Mon XI (Pick Your XI), Vidéos, jeux United, classement PL | ✅ Terminé |
+| **Sprint 8** | QA & Soutenance | Pytest, README, présentation, push GitHub | ✅ Terminé |
 
 ---
 

@@ -1,25 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { groupPlayersByPosition, loadFantasyPlayerPool } from '../services/fotmobService';
+import { UNITED_SQUAD_SEED } from '../constants/unitedSquadSeed';
+import {
+  groupPlayersByPosition,
+  loadUnitedFantasyPlayerPool,
+} from '../services/unitedFantasyPool';
 import type { FantasyListPosition, FantasyPitchPlayer } from '../types/fantasy.types';
 
+/** Pool Fantasy = effectif Manchester United uniquement. */
 export function useFantasyPlayerPool() {
-  const [players, setPlayers] = useState<FantasyPitchPlayer[]>([]);
+  const [players, setPlayers] = useState<FantasyPitchPlayer[]>(UNITED_SQUAD_SEED);
   const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState<'cache' | 'network'>('network');
+  const [source, setSource] = useState<'cache' | 'network' | 'seed'>('seed');
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const result = await loadFantasyPlayerPool();
+        const result = await loadUnitedFantasyPlayerPool();
         if (cancelled) return;
-        setPlayers(result.players);
-        setSource(result.source === 'demo' ? 'network' : result.source);
+        if (result.players.length > 0) {
+          setPlayers(result.players);
+          setSource(result.source);
+        }
       } catch {
         if (!cancelled) {
-          setPlayers([]);
-          setSource('network');
+          setPlayers(UNITED_SQUAD_SEED);
+          setSource('seed');
         }
       } finally {
         if (!cancelled) setLoading(false);

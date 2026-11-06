@@ -18,13 +18,14 @@ export const FantasyHeader = memo(function FantasyHeader({
   return (
     <LinearGradient colors={[T.headerTop, T.bg]} style={styles.wrap}>
       <View style={styles.row}>
-        <View style={styles.iconBtn}>
-          <Text style={styles.iconTxt}>←</Text>
+        <View style={styles.brandMark} />
+        <View style={styles.titleCol}>
+          <Text style={styles.eyebrow}>THE RED</Text>
+          <Text style={styles.title}>PICK YOUR XI</Text>
         </View>
-        <Text style={styles.title}>FANTASY</Text>
-        <Text style={styles.pts}>{totalPoints} pts</Text>
-        <View style={styles.iconBtn}>
-          <Text style={styles.iconTxt}>⋮</Text>
+        <View style={styles.ptsPill}>
+          <Text style={styles.pts}>{totalPoints}</Text>
+          <Text style={styles.ptsLbl}>PTS</Text>
         </View>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
@@ -41,52 +42,80 @@ export const FantasyHeader = memo(function FantasyHeader({
           );
         })}
       </ScrollView>
+      <View style={styles.accentLine} />
     </LinearGradient>
   );
 });
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingTop: 6,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 0,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(41,121,255,0.12)',
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  iconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: T.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  brandMark: {
+    width: 4,
+    height: 36,
+    borderRadius: 2,
+    backgroundColor: T.blue,
   },
-  iconTxt: { color: T.text2, fontSize: 14 },
+  titleCol: { flex: 1 },
+  eyebrow: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 9,
+    letterSpacing: 2.4,
+    color: T.gold,
+    marginBottom: 2,
+  },
   title: {
-    flex: 1,
     fontFamily: 'BebasNeue_400Regular',
-    fontSize: 22,
-    letterSpacing: 4,
+    fontSize: 26,
+    letterSpacing: 3,
     color: T.text,
+    lineHeight: 28,
+  },
+  ptsPill: {
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(218, 41, 28, 0.14)',
+    borderWidth: 1,
+    borderColor: T.borderRed,
+    minWidth: 52,
   },
   pts: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-    color: T.blue2,
+    fontFamily: 'BebasNeue_400Regular',
+    fontSize: 20,
+    color: T.gold,
+    lineHeight: 22,
     fontVariant: ['tabular-nums'],
   },
-  tabs: { gap: 6 },
+  ptsLbl: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 8,
+    letterSpacing: 1.2,
+    color: T.muted2,
+  },
+  tabs: { gap: 8, paddingBottom: 12 },
   ptab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: T.border,
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
-  ptabOn: { backgroundColor: T.blue, borderColor: T.blue },
-  ptabTxt: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: T.muted2 },
+  ptabOn: {
+    backgroundColor: T.blue,
+    borderColor: T.blue,
+  },
+  ptabTxt: { fontFamily: 'Inter_700Bold', fontSize: 11, color: T.muted2, letterSpacing: 0.3 },
   ptabTxtOn: { color: T.text },
+  accentLine: {
+    height: 1,
+    backgroundColor: 'rgba(218, 41, 28, 0.35)',
+    marginHorizontal: -16,
+  },
 });

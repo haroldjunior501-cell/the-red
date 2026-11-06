@@ -4,10 +4,9 @@ import type { FantasyBenchSlotKey, FantasyListPosition, FantasySlotKey } from '.
 export const FORMATION_LABEL = '4-3-3';
 
 export const FANTASY_PHASE_TABS = [
-  { key: 'j1', label: '1re journée' },
-  { key: 'j2', label: '2e journée' },
-  { key: 'transfer', label: 'Transferts' },
-  { key: 'final', label: 'Finale' },
+  { key: 'xi', label: 'Mon XI' },
+  { key: 'bench', label: 'Banc' },
+  { key: 'transfer', label: 'Ajustements' },
 ] as const;
 
 export type FantasyPhaseTabKey = (typeof FANTASY_PHASE_TABS)[number]['key'];
@@ -44,29 +43,29 @@ export const LIST_POSITION_CONFIG: Record<
   ATT: {
     title: 'ATTAQUANTS',
     badge: 'ATT',
-    badgeBg: 'rgba(255,82,82,0.15)',
-    badgeBorder: 'rgba(255,82,82,0.3)',
-    badgeColor: '#ff6b6b',
+    badgeBg: 'rgba(218,41,28,0.18)',
+    badgeBorder: 'rgba(218,41,28,0.4)',
+    badgeColor: COLORS.primaryLight,
   },
   MID: {
     title: 'MILIEUX',
     badge: 'MIL',
-    badgeBg: 'rgba(41,121,255,0.15)',
-    badgeBorder: 'rgba(41,121,255,0.3)',
-    badgeColor: COLORS.primaryLight,
+    badgeBg: 'rgba(251,225,34,0.12)',
+    badgeBorder: 'rgba(251,225,34,0.35)',
+    badgeColor: COLORS.gold,
   },
   DEF: {
     title: 'DÉFENSEURS',
     badge: 'DEF',
-    badgeBg: 'rgba(0,230,118,0.12)',
-    badgeBorder: 'rgba(0,230,118,0.25)',
-    badgeColor: '#00e676',
+    badgeBg: 'rgba(16,185,129,0.12)',
+    badgeBorder: 'rgba(16,185,129,0.3)',
+    badgeColor: '#34d399',
   },
   GK: {
     title: 'GARDIENS',
     badge: 'GK',
-    badgeBg: 'rgba(240,180,41,0.12)',
-    badgeBorder: 'rgba(240,180,41,0.25)',
-    badgeColor: '#f0b429',
+    badgeBg: 'rgba(255,255,255,0.08)',
+    badgeBorder: 'rgba(255,255,255,0.22)',
+    badgeColor: '#f8fafc',
   },
 };

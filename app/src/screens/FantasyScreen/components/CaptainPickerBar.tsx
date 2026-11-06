@@ -55,14 +55,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: T.card,
     borderWidth: 1,
-    borderColor: T.border,
+    borderColor: T.borderRed,
   },
   wrapActive: {
     borderColor: T.gold,
-    backgroundColor: 'rgba(240, 180, 41, 0.08)',
+    backgroundColor: 'rgba(251, 225, 34, 0.1)',
   },
   wrapFilled: {
-    borderColor: 'rgba(240, 180, 41, 0.45)',
+    borderColor: 'rgba(251, 225, 34, 0.45)',
   },
   badge: {
     width: 28,

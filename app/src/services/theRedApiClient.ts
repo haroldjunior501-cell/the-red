@@ -57,8 +57,50 @@ export const TheRedApi = {
     return res.data;
   },
 
-  // Match Center (Pilier 1)
+  // Match Center (Pilier 1) — FotMob MU en priorité
   getMatches: async (): Promise<RedMatch[]> => {
+    try {
+      const { fetchManchesterUnitedTeam } = await import('./fotmobClubApi');
+      const { FOTMOB_MU_TEAM_ID } = await import('../constants/fotmobTheRed');
+      const payload = (await fetchManchesterUnitedTeam()) as {
+        overview?: {
+          overviewFixtures?: {
+            id: number;
+            home?: { id?: number; name?: string; score?: number };
+            away?: { id?: number; name?: string; score?: number };
+            notStarted?: boolean;
+            tournament?: { name?: string };
+            status?: { utcTime?: string; started?: boolean; finished?: boolean };
+          }[];
+        };
+      };
+      const list = payload.overview?.overviewFixtures ?? [];
+      if (list.length) {
+        const mu = FOTMOB_MU_TEAM_ID;
+        return list.map((fx) => {
+          const homeId = fx.home?.id;
+          const isHome = homeId === mu ? 'HOME' : 'AWAY';
+          const opponent =
+            homeId === mu ? fx.away?.name ?? 'Adversaire' : fx.home?.name ?? 'Adversaire';
+          let status = 'SCHEDULED';
+          if (fx.status?.finished) status = 'FINISHED';
+          else if (fx.status?.started) status = 'LIVE';
+          else if (fx.notStarted) status = 'SCHEDULED';
+          return {
+            id: fx.id,
+            opponent,
+            competition: fx.tournament?.name ?? 'Premier League',
+            kickoff_at: fx.status?.utcTime ?? new Date().toISOString(),
+            status,
+            home_score: fx.home?.score ?? null,
+            away_score: fx.away?.score ?? null,
+            is_home: isHome,
+          } satisfies RedMatch;
+        });
+      }
+    } catch {
+      /* fallback API / local */
+    }
     try {
       const res = await api.get('/matches');
       if (Array.isArray(res.data) && res.data.length > 0) return res.data as RedMatch[];
@@ -69,16 +111,40 @@ export const TheRedApi = {
   },
   getMatchDetail: async (id: number): Promise<RedMatch | null> => {
     try {
+      const matches = await TheRedApi.getMatches();
+      const hit = matches.find((match) => match.id === id);
+      if (hit) return hit;
+    } catch {
+      /* détail local */
+    }
+    try {
       const res = await api.get(`/matches/${id}`);
       if (res.data) return res.data as RedMatch;
     } catch {
-      /* détail local */
+      /* ignore */
     }
     return FALLBACK_MATCHES.find((match) => match.id === id) ?? null;
   },
 
-  // United News (Pilier 2)
+  // United News (Pilier 2) — OneFootball (wrapper Python / API directe)
   getNews: async (): Promise<RedNews[]> => {
+    try {
+      const { fetchUnitedClubNews } = await import('./oneFootballNews');
+      const items = await fetchUnitedClubNews();
+      if (items.length) {
+        return items.map((item, idx) => ({
+          id: Number(item.id) || idx + 1,
+          title: item.title,
+          summary: item.summary,
+          source: item.source,
+          published_at: item.published_at,
+          url: item.url ?? undefined,
+          image_url: item.image_url ?? undefined,
+        }));
+      }
+    } catch {
+      /* fallback API / local */
+    }
     try {
       const res = await api.get('/news');
       if (Array.isArray(res.data) && res.data.length > 0) return res.data as RedNews[];
@@ -89,10 +155,28 @@ export const TheRedApi = {
   },
   getNewsDetail: async (id: number): Promise<RedNews | null> => {
     try {
+      const { fetchUnitedClubNews } = await import('./oneFootballNews');
+      const items = await fetchUnitedClubNews();
+      const hit = items.find((item) => Number(item.id) === id || item.id === String(id));
+      if (hit) {
+        return {
+          id: Number(hit.id) || id,
+          title: hit.title,
+          summary: hit.body || hit.summary,
+          source: hit.source,
+          published_at: hit.published_at,
+          url: hit.url ?? undefined,
+          image_url: hit.image_url ?? undefined,
+        };
+      }
+    } catch {
+      /* article local */
+    }
+    try {
       const res = await api.get(`/news/${id}`);
       if (res.data) return res.data as RedNews;
     } catch {
-      /* article local */
+      /* ignore */
     }
     return FALLBACK_NEWS.find((item) => item.id === id) ?? null;
   },

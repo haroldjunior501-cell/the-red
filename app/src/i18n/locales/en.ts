@@ -2,7 +2,7 @@ const en = {
   nav: {
     home: 'Home',
     live: 'Live',
-    hub: 'Hub',
+    hub: 'Videos',
     fantasy: 'Fantasy',
   },
   common: {

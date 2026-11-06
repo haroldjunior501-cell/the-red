@@ -2,18 +2,30 @@ import type { LiveFilterKey, LiveMatch } from '../types/live.types';
 import type { MatchEngagement } from '../types/live.types';
 
 export function filterMatchByPhase(match: LiveMatch, filter: LiveFilterKey): boolean {
-  const round = match.round.toLowerCase();
+  const round = `${match.round} ${match.group}`.toLowerCase();
   switch (filter) {
-    case 'groupes':
-      return round.includes('group') || match.group.toLowerCase().includes('groupe');
-    case '1/8':
-      return round.includes('round of 16') || round.includes('1/8') || round.includes('huitième');
-    case '1/4':
-      return round.includes('quarter') || round.includes('1/4') || round.includes('quart');
-    case 'demi':
-      return round.includes('semi') || round.includes('demi');
-    case 'finale':
-      return round.includes('final');
+    case 'live':
+      return (
+        match.status === 'live' ||
+        match.status === 'halftime' ||
+        match.status === 'extra_time' ||
+        match.status === 'penalties'
+      );
+    case 'upcoming':
+      return match.status === 'upcoming';
+    case 'played':
+      return match.status === 'finished';
+    case 'pl':
+      return round.includes('premier');
+    case 'ucl':
+      return round.includes('champions');
+    case 'cups':
+      return (
+        round.includes('efl') ||
+        round.includes('fa cup') ||
+        round.includes('carabao') ||
+        round.includes('league cup')
+      );
     default:
       return true;
   }

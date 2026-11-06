@@ -24,28 +24,28 @@ const DS = {
 } as const;
 
 export type VenezJouerProps = {
-  onTableau: () => void;
   onPronos: () => void;
-  onArena: () => void;
-  onFantasy: () => void;
+  onPickXi: () => void;
+  onQuiz: () => void;
+  onRating: () => void;
   onShowAll?: () => void;
 };
 
 export const VenezJouer = memo(function VenezJouer({
-  onTableau,
   onPronos,
-  onArena,
-  onFantasy,
+  onPickXi,
+  onQuiz,
+  onRating,
   onShowAll,
 }: VenezJouerProps) {
   const scrollX = useRef(new Animated.Value(0)).current;
   const entrance = useRef(new Animated.Value(0)).current;
 
   const handlers: Record<GameModeKey, () => void> = {
-    tableau: onTableau,
     pronos: onPronos,
-    arena: onArena,
-    fantasy: onFantasy,
+    pickxi: onPickXi,
+    quiz: onQuiz,
+    rating: onRating,
   };
 
   useEffect(() => {

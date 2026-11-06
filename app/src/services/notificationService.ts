@@ -13,6 +13,7 @@ Notifications.setNotificationHandler({
 
 const ANDROID_CHANNEL = 'goalya-hub';
 const FANTASY_CHANNEL = 'goalya-fantasy';
+const NEWS_CHANNEL = 'goalya-club-news';
 
 async function ensureFantasyChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -31,6 +32,16 @@ async function ensureAndroidChannel(): Promise<void> {
     importance: Notifications.AndroidImportance.HIGH,
     sound: 'default',
     vibrationPattern: [0, 120, 80, 120],
+  });
+}
+
+async function ensureNewsChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(NEWS_CHANNEL, {
+    name: 'THE RED · Actus club',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: 'default',
+    vibrationPattern: [0, 80, 40, 80],
   });
 }
 
@@ -88,18 +99,19 @@ function getMatchStartNotifContent(homeTeam: string, awayTeam: string): Notifica
 
 async function schedule(
   content: Notifications.NotificationContentInput,
-  channel: 'hub' | 'fantasy' = 'hub'
+  channel: 'hub' | 'fantasy' | 'news' = 'hub'
 ): Promise<void> {
   try {
     if (channel === 'fantasy') await ensureFantasyChannel();
+    else if (channel === 'news') await ensureNewsChannel();
     else await ensureAndroidChannel();
+    const channelId =
+      channel === 'fantasy' ? FANTASY_CHANNEL : channel === 'news' ? NEWS_CHANNEL : ANDROID_CHANNEL;
     await Notifications.scheduleNotificationAsync({
       content: {
         ...content,
         sound: 'default',
-        ...(Platform.OS === 'android'
-          ? { channelId: channel === 'fantasy' ? FANTASY_CHANNEL : ANDROID_CHANNEL }
-          : {}),
+        ...(Platform.OS === 'android' ? { channelId } : {}),
         data: content.data,
       },
       trigger: null,
@@ -202,4 +214,33 @@ export const notificationService = {
       },
       'fantasy'
     ),
+
+  sendClubNewsNotif: (opts: {
+    articleId: string;
+    title: string;
+    category: string;
+    summary?: string;
+  }) => {
+    const catLabel: Record<string, string> = {
+      officiel: 'Officiel',
+      matchs: 'Matchs',
+      mercato: 'Mercato',
+      club: 'Club',
+      medias: 'Médias',
+    };
+    const cat = catLabel[opts.category] ?? opts.category;
+    return schedule(
+      {
+        title: `📰 Nouvelle actu United · ${cat}`,
+        body: opts.title,
+        data: {
+          screen: 'ClubNewsArticle',
+          action: 'club_news',
+          articleId: opts.articleId,
+          summary: opts.summary?.slice(0, 120) ?? '',
+        },
+      },
+      'news'
+    );
+  },
 };

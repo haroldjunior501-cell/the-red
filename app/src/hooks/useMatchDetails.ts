@@ -1,43 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getH2HDetail } from '../services/footballService';
-import {
-  getLiveCommentary,
-  getMatchEvents,
-  getMatchLineups,
-  getMatchStats,
-  isFootballDataConfigured,
-} from '../services/livescoreApi';
+import { fetchMatchH2H } from '../services/fotmobClubApi';
+import { fetchFotmobLiveMatchDetails } from '../services/fotmobLiveMatchDetails';
 import type { H2HDetail } from '../services/footballService';
-import { parseApiEvents, parsePremiumApiEvents } from '../services/liveMatchParsers';
 import { mergePremiumEvents } from '../utils/liveMatchEventMap';
 import type { PremiumMatchEvent } from '../types/liveMatchEvent';
-import type { LiveMatch, MatchDetailBundle, MatchEvent } from '../types/live.types';
-import { h2hDetailToParsedSummary, parseLiveMatchStats } from '../utils/liveMatchStatsParse';
+import type { LiveMatch, MatchDetailBundle } from '../types/live.types';
+import { h2hDetailToParsedSummary, type ParsedLiveMatchStats } from '../utils/liveMatchStatsParse';
 
 const POLL_MS = 12_000;
-
-function asRecord(v: unknown): Record<string, unknown> | null {
-  return v !== null && typeof v === 'object' ? (v as Record<string, unknown>) : null;
-}
-
-function parseCommentary(payload: unknown): string[] {
-  const root = asRecord(payload);
-  if (!root) return [];
-  const data = asRecord(root.data) ?? root;
-  const lines: string[] = [];
-  for (const key of ['commentary', 'comment', 'line'] as const) {
-    const v = data[key];
-    if (Array.isArray(v)) {
-      for (const row of v) {
-        const o = asRecord(row);
-        const text = typeof row === 'string' ? row : String(o?.text ?? o?.comment ?? '');
-        if (text.trim()) lines.push(text.trim());
-      }
-      break;
-    }
-  }
-  return lines.slice(-40);
-}
 
 export function useMatchDetails(match: LiveMatch | null) {
   const [bundle, setBundle] = useState<MatchDetailBundle>({
@@ -47,6 +17,7 @@ export function useMatchDetails(match: LiveMatch | null) {
     commentary: [],
     h2h: null,
   });
+  const [parsedStats, setParsedStats] = useState<ParsedLiveMatchStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [h2hDetail, setH2hDetail] = useState<H2HDetail | null>(null);
@@ -54,37 +25,35 @@ export function useMatchDetails(match: LiveMatch | null) {
   const [premiumEvents, setPremiumEvents] = useState<PremiumMatchEvent[]>(() =>
     match ? mergePremiumEvents([], match.events) : []
   );
+  const [liveScore, setLiveScore] = useState<{
+    home: number;
+    away: number;
+    minute: string;
+    status: LiveMatch['status'];
+  } | null>(null);
 
   const fetchDetails = useCallback(async () => {
-    if (!match || !isFootballDataConfigured()) return;
+    if (!match?.id) return;
     setLoading(true);
     try {
-      const [statsRes, eventsRes, lineupsRes, commentaryRes] = await Promise.all([
-        getMatchStats(match.id),
-        getMatchEvents(match.id),
-        getMatchLineups(match.id),
-        getLiveCommentary(match.id),
-      ]);
-      const events: MatchEvent[] = parseApiEvents(
-        eventsRes,
-        match.home_team_id,
-        match.away_team_id,
-        match.home_country_code,
-        match.away_country_code
-      );
-      const apiPremium = parsePremiumApiEvents(
-        eventsRes,
-        match.home_team_id,
-        match.away_team_id,
-        match.home_country_code,
-        match.away_country_code
-      );
-      setPremiumEvents(mergePremiumEvents(apiPremium, [...match.events, ...events]));
+      const detail = await fetchFotmobLiveMatchDetails(match.id, true);
+      if (!detail) {
+        setError('Détails indisponibles');
+        return;
+      }
+      setPremiumEvents(mergePremiumEvents(detail.premiumEvents, [...match.events, ...detail.events]));
+      setParsedStats(detail.stats);
+      setLiveScore({
+        home: detail.homeScore,
+        away: detail.awayScore,
+        minute: detail.minute,
+        status: detail.status,
+      });
       setBundle({
-        stats: asRecord(statsRes),
-        events,
-        lineups: asRecord(lineupsRes),
-        commentary: parseCommentary(commentaryRes),
+        stats: detail.stats as unknown as Record<string, unknown> | null,
+        events: detail.events,
+        lineups: detail.lineups,
+        commentary: [],
         h2h: null,
       });
       setError(null);
@@ -96,20 +65,20 @@ export function useMatchDetails(match: LiveMatch | null) {
   }, [match]);
 
   const fetchH2h = useCallback(async () => {
-    if (!match?.home_country_code || !match?.away_country_code) {
+    if (!match?.id) {
       setH2hDetail(null);
       return;
     }
     setH2hLoading(true);
     try {
-      const detail = await getH2HDetail(match.home_country_code, match.away_country_code);
+      const detail = await fetchMatchH2H(match.id);
       setH2hDetail(detail);
     } catch {
       setH2hDetail(null);
     } finally {
       setH2hLoading(false);
     }
-  }, [match?.away_country_code, match?.home_country_code]);
+  }, [match?.id]);
 
   useEffect(() => {
     if (match) {
@@ -120,15 +89,20 @@ export function useMatchDetails(match: LiveMatch | null) {
   useEffect(() => {
     void fetchDetails();
     if (!match) return undefined;
+    const live =
+      match.status === 'live' ||
+      match.status === 'halftime' ||
+      match.status === 'extra_time' ||
+      match.status === 'penalties';
+    if (!live) return undefined;
     const id = setInterval(() => void fetchDetails(), POLL_MS);
     return () => clearInterval(id);
-  }, [fetchDetails, match?.id]);
+  }, [fetchDetails, match?.id, match?.status]);
 
   useEffect(() => {
     void fetchH2h();
   }, [fetchH2h]);
 
-  const parsedStats = parseLiveMatchStats(bundle.stats);
   const parsedH2H = h2hDetailToParsedSummary(h2hDetail);
 
   return {
@@ -138,6 +112,7 @@ export function useMatchDetails(match: LiveMatch | null) {
     parsedH2H,
     h2hDetail,
     h2hLoading,
+    liveScore,
     loading,
     error,
     refetch: fetchDetails,

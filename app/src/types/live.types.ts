@@ -1,6 +1,7 @@
 export type LiveMatchStatus = 'live' | 'halftime' | 'finished' | 'extra_time' | 'penalties' | 'upcoming';
 
-export type LiveFilterKey = 'all' | 'groupes' | '1/8' | '1/4' | 'demi' | 'finale';
+/** Filtres centre Live United (THE RED). */
+export type LiveFilterKey = 'all' | 'live' | 'upcoming' | 'played' | 'pl' | 'ucl' | 'cups';
 
 export type MatchEventType = 'goal' | 'yellowcard' | 'redcard' | 'substitution' | 'penalty';
 

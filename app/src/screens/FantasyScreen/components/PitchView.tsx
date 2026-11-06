@@ -60,7 +60,7 @@ export const PitchView = memo(function PitchView({
         </Svg>
 
         <LinearGradient
-          colors={['rgba(0,0,0,0.35)', 'transparent', 'rgba(0,0,0,0.45)']}
+          colors={['rgba(218,41,28,0.18)', 'transparent', 'rgba(5,2,3,0.55)']}
           style={styles.pitchVignette}
           pointerEvents="none"
         />
@@ -88,24 +88,26 @@ export const PitchView = memo(function PitchView({
   );
 });
 
+const PITCH_H = 480;
+
 const styles = StyleSheet.create({
   wrap: {
     marginHorizontal: 10,
     marginTop: 8,
     borderRadius: 18,
     overflow: 'hidden',
-    minHeight: 400,
+    height: PITCH_H,
     backgroundColor: T.bgDeep,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#000',
+    borderColor: 'rgba(218, 41, 28, 0.28)',
+    shadowColor: T.glowRed,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowRadius: 18,
+    elevation: 8,
   },
   pitchFrame: {
-    flex: 1,
+    height: PITCH_H,
     borderRadius: 18,
     overflow: 'hidden',
   },
@@ -116,16 +118,17 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   inner: {
+    ...StyleSheet.absoluteFillObject,
     paddingHorizontal: 4,
-    paddingTop: 14,
+    paddingTop: 18,
     paddingBottom: 14,
+    justifyContent: 'space-between',
     zIndex: 10,
   },
   playerRow: {
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'flex-start',
-    marginBottom: 10,
     width: '100%',
   },
 });

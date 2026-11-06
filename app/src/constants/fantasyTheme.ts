@@ -1,31 +1,40 @@
-import { COLORS } from './colors';
+import {
+  COLORS,
+  UNITED_GOLD,
+  UNITED_RED,
+  UNITED_RED_LIGHT,
+  UNITED_RED_RGB,
+} from './colors';
 
-/** Palette Fantasy premium — fond marine + bleu #2979ff. */
+/** Palette Fantasy / Pick Your XI — identité THE RED. */
 export const FANTASY_THEME = {
   bg: COLORS.bgDeep,
   bgDeep: COLORS.bgDeep,
   headerTop: COLORS.bgHighlight,
-  card: 'rgba(11, 15, 26, 0.94)',
-  card2: 'rgba(14, 20, 34, 0.96)',
+  card: 'rgba(20, 10, 12, 0.94)',
+  card2: 'rgba(28, 14, 18, 0.96)',
   glass: 'rgba(255, 255, 255, 0.06)',
   border: 'rgba(255,255,255,0.08)',
-  blue: '#2979ff',
-  blue2: '#5b9aff',
-  glowBlue: '#2979ff',
+  borderRed: `rgba(${UNITED_RED_RGB}, 0.35)`,
+  /** Alias historique → rouge United */
+  blue: UNITED_RED,
+  blue2: UNITED_RED_LIGHT,
+  glowBlue: UNITED_RED,
+  glowRed: UNITED_RED,
   text: '#ffffff',
-  text2: '#c8d6f0',
-  muted: '#5a7090',
-  muted2: '#8aa0be',
-  gold: '#f0b429',
-  green: '#00e676',
-  pitchLight: '#143d22',
-  pitchDark: '#0f3320',
-  pitchLine: 'rgba(255,255,255,0.28)',
-  stadiumGlow: 'rgba(41, 121, 255, 0.35)',
-  attBadge: '#ff6b6b',
-  midBadge: '#5b9aff',
-  defBadge: '#00e676',
-  gkBadge: '#f0b429',
+  text2: '#f0d4d4',
+  muted: '#8a6565',
+  muted2: '#b08a8a',
+  gold: UNITED_GOLD,
+  green: '#10b981',
+  pitchLight: '#1a4a28',
+  pitchDark: '#12351c',
+  pitchLine: 'rgba(255,255,255,0.22)',
+  stadiumGlow: `rgba(${UNITED_RED_RGB}, 0.28)`,
+  attBadge: UNITED_RED_LIGHT,
+  midBadge: UNITED_GOLD,
+  defBadge: '#34d399',
+  gkBadge: '#f8fafc',
 } as const;
 
 export const FANTASY_BUDGET_M = 100;

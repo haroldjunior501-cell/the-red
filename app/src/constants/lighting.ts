@@ -41,7 +41,13 @@ export function litCardStyle(extra?: ViewStyle): ViewStyle {
 }
 
 export const ambienceStyles = StyleSheet.create({
-  fill: { ...StyleSheet.absoluteFillObject },
+  fill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
   root: { flex: 1, backgroundColor: COLORS.bgDeep },
 });
 
